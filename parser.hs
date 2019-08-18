@@ -37,16 +37,16 @@ data PTerm =
       | PType VarUnit PTerm PTerm
       | PLambda PTerm PTerm
       | PValue VarUnit
-      | PMatch VarUnit PTerm [(PTerm, PTerm)] deriving (Show, Eq, Ord) -- Just a syntactly representation of a Pi Modulo Lambda Term
+      | PMatch PTerm PTerm [(([VarUnit], PTerm), PTerm)] deriving (Show, Eq, Ord) -- Just a syntactly representation of a Pi Modulo Lambda Term
 
 data Function = Function PTerm PTerm deriving (Show, Eq, Ord) -- a function is just a lambda function that hold ur type
 data Def = Def String Function deriving Show
 data RewriteRule = RewriteRule String PTerm deriving Show
 
-data Definition = FuncDef Def | RewriteDef RewriteRule deriving (Show)
+data Definition = FuncDef Def | RewriteDef RewriteRule | Eval PTerm deriving (Show)
 
 data AST = AST [Definition] deriving Show
-var_characters = []
+var_characters = ['_', '\'']
 
 getPosParser :: Monad m => ParsecT s u m (Int, Int)
 getPosParser = do 
@@ -115,26 +115,28 @@ parseMatching = (between (char '(') (char ')') matching)
  where 
     matching = do
         x <- (between (char '[') (char ']') (many matchs))
-        k <- with_spaces (consume_var_name)
+        (space)
+        k <- with_spaces parseTerm
         (string "as")
         (space)
         type' <- parseTerm
-        return (PMatch (VarName k) type' x)
+        return (PMatch k type' x)
     matchs = do
         (with_spaces (string "|"))
+        y <- between (char '{') (char '}') (with_spaces parseFreeVars)
         k <- parseTerm
         with_spaces (string "=>")
-        y <- parseTerm
-        return (k, y)
+        y' <- parseTerm
+        return ((y, k), y')
     parseFreeVars = do
-        
-    
+        many (try (consume_var_name >>= (\a -> (space) >> return (VarName a))) <|> (consume_var_name >>= (\a -> return (VarName a))))
+   
 parseTerm :: Parsec String st PTerm
 parseTerm = choice [try parsePi, try parseApp, try parseMatching, parseSimplyTerm]
 
 parseFuncDefinition ::  Parsec String st Def
 parseFuncDefinition =  do
-    x <- with_spaces $ many $ letter
+    x <- with_spaces $ consume_var_name
     with_spaces (string "=")
     parseLambdaAbs >>= (\a -> (with_spaces (string ".")) >> return (Def x a))
 
@@ -145,11 +147,19 @@ parseRuleDefinition = do
     with_spaces (string ":")
     (try parsePi <|> parseSimplyTerm) >>= (\a -> (with_spaces (string ".")) >> return (RewriteRule x a))
 
+parseEval :: Parsec String st Definition
+parseEval = do
+    x <- with_spaces (string "#EVAL")
+    with_spaces (string ":")
+    y <- with_spaces parseTerm
+    with_spaces (string ".")
+    return (Eval y)
+
 parseS :: [Definition] -> Parsec String st [Definition]
 parseS k = do
     (kei_definiton >>= (\a -> (parseS k) >>= (\c -> return (a : c)))) <|> (eof >>= (\a -> return k))
  where
-     kei_definiton = (try (parseFuncDefinition >>= (\a -> return $ FuncDef $ a))) <|> (parseRuleDefinition >>= (\a -> return $ RewriteDef $ a))
+     kei_definiton = choice [try (parseFuncDefinition >>= (\a -> return $ FuncDef $ a)), try (parseRuleDefinition >>= (\a -> return $ RewriteDef $ a)), parseEval]
 
 getAST :: IO (Either (IO ()) AST)
 getAST = do
