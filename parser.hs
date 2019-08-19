@@ -66,7 +66,7 @@ justParent k = (between (char '(') (char ')') (with_spaces k))
 
 consume_var_name :: Parsec String st String
 consume_var_name = do
-    x <- many1 $ satisfy $ (\x -> not (isSpace x) && (isAlphaNum x || (Prelude.foldl (\x -> \y -> x || y) False $ Prelude.map (\y -> x == y) var_characters)))
+    x <- alphaNum
     return x
 
 parseType :: Parsec String st (String, PTerm)
@@ -106,33 +106,35 @@ parseApp = (between (char '(') (char ')') app)
   where 
     app = do
         x <- parseTerm
-        (space)
-        y <- parseTerm
-        return (PApp x y)
+        y <- many1 (space >> parseTerm)
+        return (Prelude.foldl (\x -> \y -> PApp x y) x y)
 
 parseMatching :: Parsec String st PTerm
-parseMatching = (between (char '(') (char ')') matching)
+parseMatching = matching
  where 
     matching = do
-        x <- (between (char '[') (char ']') (many matchs))
-        (space)
-        k <- with_spaces parseTerm
-        (string "as")
-        (space)
-        type' <- parseTerm
+        (with_spaces (char '['))
+        k <- parseTerm
+        (many1 space)
+        (string "of")
+        (many1 space)
+        type' <- with_spaces parseTerm
+        (with_spaces $ return $ ())
+        x <- (many matchs)
+        (with_spaces (char ']'))
         return (PMatch k type' x)
     matchs = do
         (with_spaces (string "|"))
-        y <- between (char '{') (char '}') (with_spaces parseFreeVars)
+        y <- between (with_spaces (char '{')) (with_spaces (char '}')) (with_spaces parseFreeVars)
         k <- parseTerm
         with_spaces (string "=>")
-        y' <- parseTerm
+        y' <- with_spaces parseTerm
         return ((y, k), y')
     parseFreeVars = do
         many (try (consume_var_name >>= (\a -> (space) >> return (VarName a))) <|> (consume_var_name >>= (\a -> return (VarName a))))
    
 parseTerm :: Parsec String st PTerm
-parseTerm = choice [try parsePi, try parseApp, try parseMatching, parseSimplyTerm]
+parseTerm = choice [try parsePi, try parseMatching, try parseApp, parseSimplyTerm]
 
 parseFuncDefinition ::  Parsec String st Def
 parseFuncDefinition =  do
