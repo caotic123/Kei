@@ -2,6 +2,7 @@ module Kei_parser where
 import Text.Parsec
 import Data.Map as Map
 import Data.Char
+import System.Environment
 
 data Symbol = Initial | Next Symbol deriving (Eq, Ord)
 
@@ -28,7 +29,7 @@ instance Eq VarUnit where
 instance Ord VarUnit where
     compare (VarSimbol x _) (VarSimbol x' _) = compare x x'
     compare (VarSimbol x _) (VarName _) = LT
-    compare (VarName _) (VarSimbol x _) = LT
+    compare (VarName _) (VarSimbol x _) = GT
     compare (VarName x) (VarName x') = compare x x'
 
 data PTerm = 
@@ -46,7 +47,7 @@ data RewriteRule = RewriteRule String PTerm deriving Show
 data Definition = FuncDef Def | RewriteDef RewriteRule | Eval PTerm deriving (Show)
 
 data AST = AST [Definition] deriving Show
-var_characters = ['_', '\'']
+var_characters = ['_', '\'', '≡']
 
 getPosParser :: Monad m => ParsecT s u m (Int, Int)
 getPosParser = do 
@@ -66,7 +67,7 @@ justParent k = (between (char '(') (char ')') (with_spaces k))
 
 consume_var_name :: Parsec String st String
 consume_var_name = do
-    x <- alphaNum
+    x <- many1 $ satisfy $ (\x -> not (isSpace x) && (isAlphaNum x || (Prelude.foldl (\x -> \y -> x || y) False $ Prelude.map (\y -> x == y) var_characters)))
     return x
 
 parseType :: Parsec String st (String, PTerm)
@@ -145,7 +146,7 @@ parseFuncDefinition =  do
 parseRuleDefinition ::  Parsec String st RewriteRule
 parseRuleDefinition = do
     with_spaces (string "Rule")
-    x <- with_spaces $ many $ letter
+    x <- with_spaces $ consume_var_name
     with_spaces (string ":")
     (try parsePi <|> parseSimplyTerm) >>= (\a -> (with_spaces (string ".")) >> return (RewriteRule x a))
 
@@ -165,7 +166,12 @@ parseS k = do
 
 getAST :: IO (Either (IO ()) AST)
 getAST = do
-    n <- readFile ("sebastian.sbst")
-    case (parse (parseS ([])) "" n) of
-      Right x_ -> return (Right (AST x_))
-      Left y_ ->  return (Left (print y_))
+    x <- getArgs
+    case x of
+        x' : [] -> do
+            n <- readFile (x' ++ ".kei")
+            case (parse (parseS ([])) "" n) of
+                Right x_ -> return (Right (AST x_))
+                Left y_ ->  return (Left (print y_))
+        (x : xs) -> return $ Left (putStrLn "Error, there is no that option")
+        [] -> return $ Left (putStrLn "Kei file don't found")

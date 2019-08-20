@@ -16,9 +16,14 @@ data Term =
     | Abs Term Term 
     | App Term Term
     | Pi Term Term Term
-    | Match Term Term [(Term, Term)]
+    | Match Term Term [(Term, Term)] 
     | Type
     | Kind deriving (Eq, Ord)
+
+type Local_env = Map Term Term
+type Definitions_env = Map Term Term
+type Lambda_vars = Local_env
+type Name_env = Map VarUnit VarUnit
 
 foldr_f :: (a -> Term -> a) -> a -> Term -> a
 foldr_f f k x = case x of
@@ -53,10 +58,6 @@ instance Show Term where
     show Type = "*"
     show Kind = "Kind"
 
-type Local_env = Map Term Term
-type Definitions_env = Map Term Term
-type Lambda_vars = Local_env
-type Name_env = Map VarUnit VarUnit
 data Context = Context {term :: Term, local :: Local_env, lambda_var :: Lambda_vars} deriving Show
 
 data Definition = Definition Term Term deriving (Show, Eq, Ord)

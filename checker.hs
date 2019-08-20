@@ -4,6 +4,7 @@ import Kei_parser
 import KeiRules
 import KeiNormalization
 import Data.Map as Map
+import Data.Maybe
 
 data Jugdment = TypeJudge Term Term
 type LambdaDef = Map Term Context
@@ -93,11 +94,11 @@ unionContext (Context term local vars) (Context _ local' vars') = do
 
 assert_local :: Jugdment -> CContext -> Term -> CContext
 assert_local (TypeJudge term type') cc helper = do
-   let type_error k = TypeError term ("The term " ++ (show term) ++ " should be a type " ++ (show (pi_lambda_substituion type' cc)) ++ " instead of " ++ (show (pi_lambda_substituion k cc)) ++ " where " ++ show helper ++ " is your jugdment" ++ "\n" ++ (show (lambda_var (fst cc))))
+   let type_error k = TypeError term ("The term " ++ (show term) ++ " should be a type " ++ (show (normalize_term' (pi_lambda_substituion type' cc) cc)) ++ " instead of " ++ (show (normalize_term' (pi_lambda_substituion k cc) cc)) ++ " where " ++ show helper ++ " is your jugdment")
    let equal_types k' type' = pi_equality (k', type') cc
    case (get_type term cc) of
        Just k -> do
-        if (equal_types (pi_lambda_substituion k cc) (pi_lambda_substituion type' cc)) then cc -- A strong equality (lambda )
+        if (equal_types (pi_lambda_substituion k cc) (pi_lambda_substituion type' cc)) then cc -- A weak equality (lambda )
         else pushTypeError' cc (type_error k)
        Nothing -> pushLeakType cc term helper
 
@@ -110,29 +111,47 @@ get_rules_typed_context r s = case r of
         (s, insert x rule_typed map')
     [] -> (s, empty)
 
-is_strong_normalized :: State -> Term -> Bool
-is_strong_normalized (State cc e) c = is_strong_normalized' && there_are_no_definitions && there_are_no_free_matchs
+have_a_fix_point (k', f) = foldr_f (\x -> \y -> (y == f) || x) False (evaluates_avaliable_match k')
+have_const (App _ k') = foldr_f (\x -> \y -> case y of
+    App x (Var (VarName _) _) -> True --by default a VarName is a free and defined func/rule term
+    App (Var (VarName _) _) x -> True
+    _ -> x
+    ) False (evaluates_avaliable_match k')  
+    
+just_linear_substuitions term' cc = not (foldr_f (\x -> \y -> search x y) True term')
+    where 
+        search x y = case y of
+            (App y' t) ->
+                case (getTermFromLambdaDefs y' cc) of
+                    Just x' -> if (have_a_fix_point ((term x'), y')) then x else False
+                    Nothing -> x
+            _ -> x
+
+is_weak_normalized :: State -> Term -> Bool
+is_weak_normalized (State cc e) c = is_weak_normalized' && there_are_no_definitions && there_are_no_free_matchs
     where
         there_are_no_definitions = foldr_f (\x -> \y ->
-            case (getTermFromLambdaDefs y cc) of
-                Just x' -> False
-                Nothing -> x) True c
+            case y of
+                (App y' t) ->
+                    case (getTermFromLambdaDefs y' cc) of
+                        Just x' -> if (have_a_fix_point ((term x'), y')) && (have_const (App y' t)) then False else x
+                        Nothing -> x
+                _ -> x) True c
         is_ResolvableMatch k = 
             case k of
                 Match matched _ terms -> do
                     let n = Prelude.foldl (\y -> \(predicate, term) -> if check_matching matched predicate then (predicate, term) : y else y) [] terms
                     (length n) > 0
-                _ -> False            
-        have_a_fix_point k' f = foldr_f (\x -> \y -> (y == f) || x) False (evaluates_avaliable_match k')
+                _ -> False       
         there_are_no_free_matchs = 
             foldr_f (\x -> \y -> (not (is_ResolvableMatch y)) && x) True c
-        is_strong_normalized' = 
+        is_weak_normalized' = 
             foldr_f (\x -> \y -> (is_non_abs_app y) && x) True c
             where 
                 is_non_abs_app k = case k of {App (Abs _ _) _ -> False; _ -> True;}
 
-strong_normalize :: Term -> Term
-strong_normalize c = (evaluates_avaliable_match (apply_f (\x -> case x of
+weak_normalize :: Term -> Term
+weak_normalize c = (evaluates_avaliable_match (apply_f (\x -> case x of
     (App (Abs x y) t) -> beta_reduction (App (Abs x y) t) 
     _ -> x) c))
 
@@ -180,32 +199,42 @@ change_lambda_vars (t, t') ((Context term' local lambda_vars), k) = ((Context te
 set_lambda_vars :: CContext -> Lambda_vars -> CContext 
 set_lambda_vars ((Context term' local _), k) lambda_vars = ((Context term' local lambda_vars), k)
 
---context_strong_normalized :: CContext -> Bool
---context_strong_normalized (c, (State cc e)) = fold (\x -> \y -> (is_strong_normalized (x, (State cc e))) && y) True (toList (local c)) 
+--context_weak_normalized :: CContext -> Bool
+--context_weak_normalized (c, (State cc e)) = fold (\x -> \y -> (is_weak_normalized (x, (State cc e))) && y) True (toList (local c)) 
 
-substitute_definitions :: CContext -> CContext -- Trying get normal terms from the context is a way of obtain sucessuful typed conversion equality
-substitute_definitions (c, (State cc e)) = ((substitute_terms c (term c)), (State cc e))
-  where 
-    substitute_terms = foldr_f (\x -> \y ->
-        case (getTermFromLambdaDefs y cc) of
-            Just x' -> unionContext (substitute_env_vars x y (term x')) x'
-            Nothing -> x)
-    substitute_env_vars (Context x y' z) y t' = (Context (apply_f (\x -> if x == y then t' else x) x) y' z)
-
+simply_eval :: Term -> GlobalContext -> Term -- Trying get normal terms from the context is a way of obtain sucessuful typed conversion equality
+simply_eval k cc = apply_f (\y -> 
+    case (getTermFromLambdaDefs y cc) of
+        Just x' -> (term x')
+        Nothing -> y) k
+        
 normalize_term' :: Term -> CContext -> Term -- Trying get normal terms from the context is a way of obtain sucessuful typed conversion equality
-normalize_term' term' (context, (State cc e))
- | not (is_strong_normalized (State cc e) term') = (evaluates_avaliable_match (strong_normalize (substitute_terms term')))
- | otherwise = term'
+normalize_term' term' c'@(context, (State cc e)) = do
+    let solved_linear = solve_non_recursives_terms term' c'
+    if (not (is_weak_normalized (State cc e) solved_linear)) then
+        normalize_term' (substitute_terms $ solved_linear) $ c' else solved_linear 
   where 
     substitute_terms =
         apply_f (\y -> case y of
             App x' y' -> case (getTermFromLambdaDefs x' cc) of
                 Just (Context t local vars) -> do
-                    let (t0, _) = substitute_definitions ((Context (App t y') local vars), (State cc e))
-                    strong_normalize (term t0)
+              --      let (t0, _) = substitute_definitions ((Context (App t y') local vars), (State cc e))
+                      weak_normalize  (App t y')
                 Nothing -> y
             _ -> y)
-     
+
+solve_non_recursives_terms :: Term -> CContext -> Term -- Trying get normal terms from the context is a way of obtain sucessuful typed conversion equality
+solve_non_recursives_terms term' (context, (State cc e))
+ | just_linear_substuitions term' cc = (solve_linear_terms term')
+ | otherwise = term'
+  where 
+    solve_linear_terms =
+        apply_f (\y -> case y of
+            App x' y' -> case (getTermFromLambdaDefs x' cc) of
+                Just (Context t local vars) -> do
+                    if (not (have_a_fix_point (t, x'))) then weak_normalize (App t y') else y
+                Nothing -> y
+            _ -> y)
 
 pi_uniquiness :: Term -> Symbol -> Term
 pi_uniquiness (Pi (Var (VarSimbol x y) l) t t') s = do
@@ -223,7 +252,7 @@ pi_uniquiness Kind s = Kind
 pi_equality :: (Term, Term) -> CContext -> Bool
 pi_equality (t, x) cc = do
     let b = Initial
-    (pi_uniquiness t b) == (pi_uniquiness x b) -- || normalize_term' (pi_uniquiness t b) cc == normalize_term' (pi_uniquiness x b) cc
+    (pi_uniquiness t b) == (pi_uniquiness x b)  || normalize_term' (pi_uniquiness t b) cc == normalize_term' (pi_uniquiness x b) cc
 
 pi_lambda_substituion :: Term -> CContext -> Term
 pi_lambda_substituion k ((Context u i lambda_var, m))
@@ -299,7 +328,8 @@ type_construction_correspodence x y cc = do
 assert_constructions x y cc helper = case (get_type y cc) of
     Just type' -> assert_local (TypeJudge x type') cc helper
     Nothing -> pushTypeError' cc (TypeError x ("Impossible of infer the " ++ (show x) ++ " and " ++ (show y) ++ " in " ++ (show helper)))
-        
+
+
 inference (Abs k t) cc = abs_rule (Abs k t) (inference t cc)
 inference (Pi var t t') cc = prod_rule (Pi var t t') (inference t' (inference t cc))
 inference (App x y) cc = app_rule (App x y) (inference x (inference y cc))
@@ -329,31 +359,29 @@ eval k env = case k of
 checkKeiTerms :: AST -> IO ()
 checkKeiTerms k = do
      let (GlobalContext contexts rules context_def lambdas) = getGlobalContext k
-
      let state = State (getGlobalContext k) []
      let uncheck_rules = snd $ unzip $ (toList (rules))
-     x <- (checkTerms state contexts)
      y <- (checkTerms state uncheck_rules)
-     putStrLn (print_type_erros (Prelude.foldl (\x -> \y -> x ++ y) [] (x ++ y)))
-     eval ((\(AST k) -> k) k) (undefined, state)
-     return ()
+     x <- (checkTerms state contexts)
+     let concat = Prelude.foldl (\x -> \y -> x ++ y) []
+     case (concat y) of
+        ls@(_ : _) -> do
+            (putStrLn (print_type_erros ls))
+        _ -> case (concat x) of
+            ls@(_ : _) -> do
+                (putStrLn (print_type_erros ls))
+                putStrLn "Error in function definition, by default don't eval bad typed encoding"
+            _ -> do
+                putStrLn "Kei checked the terms with sucess"
+                eval ((\(AST k) -> k) k) (undefined, state) 
+    
   where
     checkTerms state (context : xs) = checkTerms state xs >>= (\xs -> do
-     --   putStrLn ""
-   --     print (getCTerm (context, state), (getCTerm normalized_context))
-      --  print (checkTerm (normalized_context, state))
-       -- print ((checkTerm normalized_context))
-  ---      print (getCTerm (checkTerm (context, state)))
-   --     print (normalize_term' (term context) (context, state))
+
         return ((getListErros (checkTerm (context, state))) : xs))
     checkTerms state [] = return []
     print_type_erros ((TypeError k s) : xs) = s ++ "\n" ++ print_type_erros xs
     print_type_erros [] = ""
-
---getAstType :: Context -> Term -> Term
---getAstType k term = case term of 
-  --                 Var s _ -> get s (local k)
-    --               Abs s t _ -> Pi s (get s (local k)) (getType k t)
 
 main = do
     getAST >>= (\a -> do

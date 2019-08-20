@@ -1,0 +1,22 @@
+Rule ≡ : (forall (n : nat) (n' : nat) -> Type).
+Rule refl : (forall (n : nat) -> (≡ n n)).
+
+Rule nat : Type.
+Rule S : (forall (H : nat) -> nat).
+Rule Z : nat.
+Rule A : Type.
+
+add = (\(forall (n : nat) (y : nat) -> nat) | n y => [n of nat
+  |{x}(S x) => (S (add n x))
+  |{}Z => y]).
+
+pred= (\(forall (n : nat) -> nat) | n => [n of nat
+  |{x}(S x) => (pred x) 
+  |{}Z => Z
+  ]).
+         
+id = (\(forall (_ : nat) -> nat) | x => x).
+
+pred_refl = (\(forall (x : nat) (y : nat) (H : (≡ (pred (S x)) (pred (S y)))) -> (≡ (pred x) (pred y))) | x y H => H).
+
+#EVAL : (≡ (pred x) (pred (id y))).
