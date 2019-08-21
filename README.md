@@ -68,7 +68,15 @@ Before that, check if everything is okay going to example folder and ...
 Kei foo
 ```
 
-# What wasn't implememnted
+# Sources
+
+This work is very influenced by :
+Typechecking in the lambda-Pi-Calculus Modulo : Theory and Practice (Ronan Saillard)
+The λΠ-calculus Modulo as a Universal Proof Language (Mathieu Boespflug1, Quentin Carbonneaux2 and Olivier Hermant3)
+Dedukti: a Logical Framework based on the λΠ-Calculus Modulo Theory (Ali Assaf1, et al).
+
+Besides the designer language like syntax were defined with a help of thougts of [Lucas](https://github.com/luksamuk) and [Davidson](https://github.com/luksamuk).
+
 
 ```
 Totally Checker
