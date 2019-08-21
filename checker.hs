@@ -13,36 +13,33 @@ data TypeErrors = TypeError Term String deriving Show
 data State = State GlobalContext [TypeErrors] deriving Show
 type CContext = (Context, State)
 
-formalize_terms :: Local_env -> TypedT -> Lambda_vars -> Context
-formalize_terms y k args =
+formalize_terms :: Local_env -> TypedT -> Context
+formalize_terms y k =
     case k of
         (Typed (PAbs k by) (PType u q q')) -> do 
             let untyped_term = Abs (Var k Lambda_Abstraction) (untyped_parsedTerm by)
-            let (Pi name type_var term_dependent) = untyped_parsedTerm (PType u q q')
-            let (pi_premisse, names) = decompose_types_assumptions' untyped_term (Pi name type_var term_dependent) y args
-            let env = do
-                let v = insert untyped_term (Pi (Var u Pi_Abstraction) (untyped_parsedTerm q) (untyped_parsedTerm q')) pi_premisse
-                (insert (Var k Lambda_Abstraction) (untyped_parsedTerm q) (insert name type_var v))
-            Context untyped_term env (insert (Var k Lambda_Abstraction) (Var u Pi_Abstraction) names)
+            let (Pi name type_var term_dependent) = equal_types untyped_term (untyped_parsedTerm (PType u q q'))
+            let (pi_premisse, names) = decompose_types_assumptions' untyped_term (Pi name type_var term_dependent) y empty
+            Context untyped_term pi_premisse empty
         (Typed (PValue k) f) -> do
             let t = untyped_parsedTerm (PValue k)
-            Context t (insert t (untyped_parsedTerm f) y) args
+            Context t (insert t (untyped_parsedTerm f) y) empty
         (Typed (PApp k y') f) -> do
             let t = untyped_parsedTerm (PApp k y')
-            Context t  (insert t (untyped_parsedTerm f) y) args
+            Context t  (insert t (untyped_parsedTerm f) y) empty
         (Typed (PType k y1 y2) f) -> do
             let (Pi x type_t term_dependent) = untyped_parsedTerm (PType k y1 y2)
             let pi_premisse = decompose_types_assumptions (Pi x type_t term_dependent) y -- every pi type has a premisse that x carry a T type/kind.
-            Context (Pi x type_t term_dependent) (insert (Pi x type_t term_dependent) (untyped_parsedTerm f) pi_premisse) args
+            Context (Pi x type_t term_dependent) (insert (Pi x type_t term_dependent) (untyped_parsedTerm f) pi_premisse) empty
         (Typed (PMatch matched type' k) f) -> do
            -- let typed_expr_match = Prelude.foldl (\x -> \(condition, term) ->
            --      (insert (untyped_parsedTerm term) (untyped_parsedTerm type') x)) y k
             let t = untyped_parsedTerm (PMatch matched type' k)
-            Context t y args
+            Context t y empty
 
 getLocalContexts :: [TypedT] -> [Context]
 getLocalContexts (x : xs) = do
-    formalize_terms empty x empty : (getLocalContexts xs)
+    formalize_terms empty x : (getLocalContexts xs)
 getLocalContexts [] = []
 
 getGlobalContext :: AST -> GlobalContext
@@ -57,11 +54,11 @@ getGlobalContext k = do
    GlobalContext locals rules def_env funcs
 
 getCTerm (k, y) = do
-    let (Context term local lambda_var) = k
+    let (Context term local _) = k
     term
 
 getLocalContext (k, y) = do
-    let (Context term local lambda_var) = k
+    let (Context term local _) = k
     local
 
 getListErros :: CContext -> [TypeErrors]
@@ -72,7 +69,7 @@ getEnvDef (k, State (GlobalContext _ _ env_def lambdas) er) = env_def
 
 getTermFromLambdaDefs term' (GlobalContext _ _ def_env lambdas) = Map.lookup term' lambdas
 
-mapContext (Context term' local vars') f = (Context term' (Map.map f local) vars')
+mapContext (Context term' local match_vars) f = (Context term' (Map.map f local) match_vars)
 
 get_type :: Term -> CContext -> Maybe Term
 get_type term' cc = case (get_type' term') of
@@ -89,16 +86,15 @@ pushTypeError bad_typed (State t ts) = (State t (bad_typed : ts))
 pushTypeError' (k, (State t ts)) bad_typed = (k, (State t (bad_typed : ts)))
 pushLeakType (k, (State t ts)) bad_typed helper = (k, (State t (TypeError bad_typed ("The term " ++ (show bad_typed) ++ " leaks of type term" ++ " in " ++ (show helper)) : ts)))
 
-unionContext (Context term local vars) (Context _ local' vars') = do
-    Context term (union local local') (union vars vars')
-
 assert_local :: Jugdment -> CContext -> Term -> CContext
 assert_local (TypeJudge term type') cc helper = do
-   let type_error k = TypeError term ("The term " ++ (show term) ++ " should be a type " ++ (show (normalize_term' (pi_lambda_substituion type' cc) cc)) ++ " instead of " ++ (show (normalize_term' (pi_lambda_substituion k cc) cc)) ++ " where " ++ show helper ++ " is your jugdment")
+   let type_error k = TypeError term ("The term " ++ (show term) ++ " should be a type " ++ (show (normalize_term' (matching_substituion type' cc) cc)) ++ " instead of " ++ (show (normalize_term' (matching_substituion k cc) cc)) ++ " where " ++ show helper ++ " is your jugdment\n")
    let equal_types k' type' = pi_equality (k', type') cc
+   let subst term' = (matching_substituion term' cc)
    case (get_type term cc) of
        Just k -> do
-        if (equal_types (pi_lambda_substituion k cc) (pi_lambda_substituion type' cc)) then cc -- A weak equality (lambda )
+        if (equal_types k type' ||
+            equal_types (subst k) (subst type')) then cc -- A weak equality (lambda )
         else pushTypeError' cc (type_error k)
        Nothing -> pushLeakType cc term helper
 
@@ -107,14 +103,13 @@ get_rules_typed_context r s = case r of
     ((RewriteRule x y) : xs) -> do
         let (s', t) = pure_structural s y
         let (s, map') = get_rules_typed_context xs s'
-        let rule_typed = formalize_terms empty (Typed t (PValue (VarName "Type"))) empty
+        let rule_typed = formalize_terms empty (Typed t (PValue (VarName "Type")))
         (s, insert x rule_typed map')
     [] -> (s, empty)
 
 have_a_fix_point (k', f) = foldr_f (\x -> \y -> (y == f) || x) False (evaluates_avaliable_match k')
 have_const (App _ k') = foldr_f (\x -> \y -> case y of
-    App x (Var (VarName _) _) -> True --by default a VarName is a free and defined func/rule term
-    App (Var (VarName _) _) x -> True
+    (Var (VarName _) _) -> True
     _ -> x
     ) False (evaluates_avaliable_match k')  
     
@@ -191,13 +186,13 @@ evaluates_avaliable_match k = case k of
                 
 
 change_local :: (Term, Term) -> CContext -> CContext 
-change_local (t, t') ((Context term' local lambda_vars), k) = ((Context term' (insert t t' local) lambda_vars), k)
+change_local (t, t') ((Context term' local match_vars), k) = ((Context term' (insert t t' local) match_vars), k)
 
-change_lambda_vars :: (Term, Term) -> CContext -> CContext 
-change_lambda_vars (t, t') ((Context term' local lambda_vars), k) = ((Context term' local (insert t t' lambda_vars)), k)
+change_match_vars :: (Term, Term) -> CContext -> CContext
+change_match_vars  (t, t') ((Context term' local match_vars), k) = ((Context term' local (insert t t' match_vars)), k)
 
-set_lambda_vars :: CContext -> Lambda_vars -> CContext 
-set_lambda_vars ((Context term' local _), k) lambda_vars = ((Context term' local lambda_vars), k)
+set_matching_vars :: CContext -> Lambda_vars -> CContext 
+set_matching_vars ((Context term' local _), k) match_vars = ((Context term' local match_vars), k)
 
 --context_weak_normalized :: CContext -> Bool
 --context_weak_normalized (c, (State cc e)) = fold (\x -> \y -> (is_weak_normalized (x, (State cc e))) && y) True (toList (local c)) 
@@ -212,12 +207,12 @@ normalize_term' :: Term -> CContext -> Term -- Trying get normal terms from the 
 normalize_term' term' c'@(context, (State cc e)) = do
     let solved_linear = solve_non_recursives_terms term' c'
     if (not (is_weak_normalized (State cc e) solved_linear)) then
-        normalize_term' (substitute_terms $ solved_linear) $ c' else solved_linear 
+        normalize_term' (weak_normalize (substitute_terms $ solved_linear)) $ c' else solved_linear 
   where 
     substitute_terms =
         apply_f (\y -> case y of
             App x' y' -> case (getTermFromLambdaDefs x' cc) of
-                Just (Context t local vars) -> do
+                Just (Context t local _) -> do
               --      let (t0, _) = substitute_definitions ((Context (App t y') local vars), (State cc e))
                       weak_normalize  (App t y')
                 Nothing -> y
@@ -231,7 +226,7 @@ solve_non_recursives_terms term' (context, (State cc e))
     solve_linear_terms =
         apply_f (\y -> case y of
             App x' y' -> case (getTermFromLambdaDefs x' cc) of
-                Just (Context t local vars) -> do
+                Just (Context t local _) -> do
                     if (not (have_a_fix_point (t, x'))) then weak_normalize (App t y') else y
                 Nothing -> y
             _ -> y)
@@ -252,14 +247,14 @@ pi_uniquiness Kind s = Kind
 pi_equality :: (Term, Term) -> CContext -> Bool
 pi_equality (t, x) cc = do
     let b = Initial
-    (pi_uniquiness t b) == (pi_uniquiness x b)  || normalize_term' (pi_uniquiness t b) cc == normalize_term' (pi_uniquiness x b) cc
+    t == x || (pi_uniquiness t b) == (pi_uniquiness x b)  || normalize_term' (pi_uniquiness t b) cc == normalize_term' (pi_uniquiness x b) cc
 
-pi_lambda_substituion :: Term -> CContext -> Term
-pi_lambda_substituion k ((Context u i lambda_var, m))
+matching_substituion :: Term -> CContext -> Term
+matching_substituion k ((Context u i match_vars, m))
      | there_is_substitons k = 
-        pi_lambda_substituion (apply_f (\x -> case (Map.lookup x lambda_var) of {Just x' -> x'; Nothing -> x}) k) ((Context u i lambda_var, m))
+        matching_substituion (apply_f (\x -> case (Map.lookup x match_vars) of {Just x' -> x'; Nothing -> x}) k) ((Context u i  match_vars, m))
      | otherwise = k
-  where there_is_substitons k = foldr_f (\x -> \y -> case (Map.lookup y lambda_var) of {Just x' -> True; Nothing -> x}) False k
+  where there_is_substitons k = foldr_f (\x -> \y -> case (Map.lookup y match_vars) of {Just x' -> True; Nothing -> x}) False k
 
 prod_rule :: Term -> CContext -> CContext
 prod_rule t c = pi_typed_env t
@@ -298,32 +293,32 @@ match_typing k cc = do
 
 type_match_option :: CContext -> Term -> Term -> (Term, Term) -> CContext
 type_match_option cc destructed type' (predicate, term) = do
-    let state_lambda_vars = (lambda_var (fst cc)) 
     (type_construction_equality destructed predicate (infer_by_aplication predicate cc) term)
 
 infer_by_aplication :: Term -> CContext -> CContext
 infer_by_aplication k cc =
     case k of
         App x y -> do
-            let c' = (infer_by_aplication x cc)
-            case (get_type x c') of
+            let u' = (infer_by_aplication x (infer_by_aplication y cc))
+            case (get_type x u') of
                 Just (Pi n term term_dependent) ->
-                    change_local ((App x y), pi_reduction ((Pi n term term_dependent), y)) (change_local (y, term) c')
+                    change_local ((App x y), pi_reduction ((Pi n term term_dependent), y)) (change_local (y, term) u')
                 Nothing ->
-                    pushTypeError' c' (TypeError k ("The type of " ++ (show x) ++  "can't be inferred on " ++ (show k) ++ " construction"))
+                    pushTypeError' u' (TypeError k ("The type of " ++ (show x) ++  "can't be inferred on " ++ (show k) ++ " construction"))
         Var _ _ -> cc
         f -> pushTypeError' cc (TypeError f ("Construction just allow applications products : " ++ (show k)))
     
-type_construction_equality x y cc k =
-    case (get_type x cc, get_type y cc) of
-        (Just y, Just y') -> assert_local (TypeJudge x y) (type_construction_correspodence y y' cc) k
-        _ -> pushTypeError' cc (TypeError x ("Impossible of infer the " ++ (show x) ++ " and " ++ (show y) ++ " in " ++ (show k)))
+type_construction_equality x u cc k =
+    case (get_type x cc, get_type u cc) of
+        (Just y, Just y') -> assert_local (TypeJudge x y) (type_construction_correspodence y y' (type_construction_correspodence x u cc)) k
+        _ -> pushTypeError' cc (TypeError x ("Impossible of infer the " ++ (show x) ++ " and " ++ (show u) ++ " in " ++ (show k)))
     
 type_construction_correspodence x y cc = do
     case (x, y) of --two productons canonically construed by the same construction *should* be equal 
       ((App k k'), (App k0 k0')) -> do
-        change_lambda_vars (k', k0') (type_construction_correspodence k' k0' cc)
-      (_,  _) -> cc
+        change_match_vars (k', k0') (type_construction_correspodence k' k0' (type_construction_correspodence k k0 cc))
+      (v@(Var (VarSimbol _ _) _), v') -> change_match_vars (v, v') cc
+      _ -> cc
     
 assert_constructions x y cc helper = case (get_type y cc) of
     Just type' -> assert_local (TypeJudge x type') cc helper
@@ -336,9 +331,9 @@ inference (App x y) cc = app_rule (App x y) (inference x (inference y cc))
 inference (Match x y matchs) cc = do
     let k = match_typing (Match x y matchs) (inference x (inference y cc))
     Prelude.foldl (\y' -> \(predicate, term) -> do
-        let state_lambda_vars = (lambda_var (fst y')) -- saves the actual context to avoid problem with scopes variables of matching context
+        let state_match = (match_vars (fst y')) -- saves the actual context to avoid problem with scopes variables of matching context
         let try = type_match_option y' x y (predicate, term)
-        set_lambda_vars (assert_local (TypeJudge term y) (inference term try) (Match x y matchs)) state_lambda_vars) k matchs -- Preserve and guarantees expr match hygienic scopes 
+        set_matching_vars (assert_local (TypeJudge term y) (inference term try) (Match x y matchs)) state_match) k matchs -- Preserve and guarantees expr match hygienic scopes 
 inference  _  cc = cc
 
 checkTerm :: CContext -> CContext
@@ -377,7 +372,6 @@ checkKeiTerms k = do
     
   where
     checkTerms state (context : xs) = checkTerms state xs >>= (\xs -> do
-
         return ((getListErros (checkTerm (context, state))) : xs))
     checkTerms state [] = return []
     print_type_erros ((TypeError k s) : xs) = s ++ "\n" ++ print_type_erros xs

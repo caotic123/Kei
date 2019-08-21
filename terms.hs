@@ -58,7 +58,7 @@ instance Show Term where
     show Type = "*"
     show Kind = "Kind"
 
-data Context = Context {term :: Term, local :: Local_env, lambda_var :: Lambda_vars} deriving Show
+data Context = Context {term :: Term, local :: Local_env, match_vars :: Lambda_vars} deriving Show
 
 data Definition = Definition Term Term deriving (Show, Eq, Ord)
 data TypedT  = Typed PTerm PTerm deriving Show
@@ -126,6 +126,7 @@ untyped_parsedTerm (PMatch matched type' k) = do
     let pair' = Prelude.map (\((vars, pred), term) -> (untyped_parsedTerm pred, untyped_parsedTerm term)) k
     Match (untyped_parsedTerm matched) (untyped_parsedTerm type') pair'
 untyped_parsedTerm (PValue k) = (Var k Bound_Free)
+
 
 getTermsByAst (AST k) s = s_continuation k s -- i had to to face somes design problemas so this function solves *com gambiarra*
  where 
