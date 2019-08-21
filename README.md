@@ -68,3 +68,10 @@ Before that, check if everything is okay going to example folder and ...
 Kei foo
 ```
 
+# What wasn't implememnted
+
+```
+Totally Checker
+Confluent Pattern Matching (avoid non Left-Linear Rules), this topic is very complicate Dedukti do a optimization of patterns matching to solve this.
+Confluent Checker
+```
