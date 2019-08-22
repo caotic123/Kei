@@ -41,12 +41,11 @@ symmetry = (\(forall (x : type) (y : type) (H' : (≡ x y)) -> (≡ y x)) | x y 
 ```
 
 You could ask yourself if you need always specific a symbol scheme for prove. The ideia is that you able to working
-with differentes approach and logic system, however the small core of Kei is expressive enough for represent trivial and more complex proofs itself with a few number of statics symbols and rewriting rules through of composition of proofs.
-
+with differentes approach and logic system, however the small core of Kei is expressive enough for represent trivial and more complex proofs like induction proofs with a few number of statics symbols and rewriting rules through of composition of rules.
 
 # The Core
 The core of key is based on a type theory called Lambda-Pi-Calculus Modulo Calculus. Despite the core being very experimental, Kei is able to prove
-somes properties through a encoding of typed rules.
+somes properties through a encoding of typed rule.
 
 Rules of static symbols are defined as in [Dedukti](https://github.com/Deducteam/Dedukti), for example a sized list vector can be defined like :
 
