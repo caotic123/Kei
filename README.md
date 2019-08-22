@@ -27,7 +27,7 @@ One of most interesting property of Kei is you can combine statics symbols with 
 
 # Rules
 
-[Rules](https://github.com/caotic123/Kei/blob/master/examples/Typechecking%20in%20the%20lambda-Pi-Calculus%20Modulo_%20Theory%20and%20Practice-1.jpg?raw=true)
+![Rules](https://github.com/caotic123/Kei/blob/master/examples/Typechecking%20in%20the%20lambda-Pi-Calculus%20Modulo_%20Theory%20and%20Practice-1.jpg?raw=true)
 
 # Working
 
