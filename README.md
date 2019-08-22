@@ -90,19 +90,18 @@ Kei foo
 
 # What wasn't implemented
 
-```
-Totally Checker
-Confluent Pattern Matching (avoid non Left-Linear Rules), this topic is a bit complicate Dedukti do a optimization of patterns matching to solve this.
-Impossible clause
-Patterns matching clauses checking
-Confluent Checker
-A backend :)
-*Fast* type checking
-```
+- Totally Checker
+- Confluent Pattern Matching (avoid non Left-Linear Rules), this topic is a bit complicate Dedukti do a optimization of -  patterns matching to solve this.
+- Impossible clause
+- Patterns matching clauses checking
+- Confluent Checker
+- A backend :)
+- *Fast* type checking
+
 
 # Sources
 
-This work is very influenced by :
+This work is very influenced by :  
 Typechecking in the lambda-Pi-Calculus Modulo : Theory and Practice (Ronan Saillard).  
 The λΠ-calculus Modulo as a Universal Proof Language (Mathieu Boespflug1, Quentin Carbonneaux2 and Olivier Hermant3).  
 Dedukti: a Logical Framework based on the λΠ-Calculus Modulo Theory (Ali Assaf1, et al).  
