@@ -36,6 +36,7 @@ Rule eq_rect : (forall (n : type)
                        (H : (f a n))
                        ->
                        (f a n')).   
+
 f_sym = (\(forall (x : type) (y : type) -> Type) | x y => (≡ y x)).
 symmetry = (\(forall (x : type) (y : type) (H' : (≡ x y)) -> (≡ y x)) 
    | x y H' => (eq_rect x y H' x f_sym (refl x))).
