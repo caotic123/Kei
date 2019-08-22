@@ -37,7 +37,8 @@ Rule eq_rect : (forall (n : type)
                        ->
                        (f a n')).   
 f_sym = (\(forall (x : type) (y : type) -> Type) | x y => (≡ y x)).
-symmetry = (\(forall (x : type) (y : type) (H' : (≡ x y)) -> (≡ y x)) | x y H' => (eq_rect x y H' x f_sym (refl x))).
+symmetry = (\(forall (x : type) (y : type) (H' : (≡ x y)) -> (≡ y x)) 
+   | x y H' => (eq_rect x y H' x f_sym (refl x))).
 ```
 
 You could ask yourself if you need always specific a symbol scheme for prove. The ideia is that you able to working
