@@ -1,10 +1,35 @@
 Rule ≡ : (forall (n : nat) (n' : nat) -> Type).
 Rule refl : (forall (n : nat) -> (≡ n n)).
 
+Rule ≡' : (forall (n : Comparasion) (n' : Comparasion) -> Type).
+Rule refl' : (forall (n : Comparasion) -> (≡' n n)).
+
+Rule False : Type.
+Rule ⊥ : (forall (_ : False) (x : nat) (y : nat) -> (≡ x y)).
+ 
+Rule false_eq_comparassion : (forall 
+                           (_ : (≡' Eq Lt))
+                           -> False).
+                      
+Rule false_eq_comparassion2 : (forall 
+                           (_ : (≡' Eq Gt))
+                           -> False).
+                           
 Rule nat : Type.
 Rule S : (forall (H : nat) -> nat).
 Rule Z : nat.
 Rule A : Type.
+
+Rule Comparasion : Type.
+Rule Eq : Comparasion.
+Rule Lt : Comparasion.
+Rule Gt : Comparasion.
+
+Rule f_succ : (forall
+               (x : nat)
+               (y : nat)
+               (H : (≡ x y))
+               -> (≡ (S x) (S y))).
 
 add = (\(forall (n : nat) (y : nat) -> nat) | n y => [n of nat
   |{x}(S x) => (S (add n x))
@@ -19,4 +44,30 @@ id = (\(forall (_ : nat) -> nat) | x => x).
 
 pred_refl = (\(forall (x : nat) (y : nat) (H : (≡ (pred (S x)) (pred (S y)))) -> (≡ (pred x) (pred y))) | x y H => H).
 
-#EVAL : (≡ (pred x) (pred (id y))).
+cmp' = (\(forall (x : nat) (y : nat) -> Comparasion) | x y => [x of Comparasion
+   |{x'}(S x') => [y of Comparasion
+     |{y'}(S y') => (cmp' x' y')
+     |{}Z => Gt
+   ]
+   |{} Z => [y of Comparasion
+     |{y'}(S y') => Lt
+     |{}Z => Eq
+   ]
+  ]).
+
+
+proof_S_cmp' = (\(forall (q : nat) (t : nat) (_ : (≡' Eq (cmp' (S q) (S t)))) -> (≡' Eq (cmp' q t))) 
+ | q t H => H).
+
+proof_eq_impl_refl = (\(forall (x0 : nat) (y0 : nat) (H : (≡' Eq (cmp' x0 y0))) -> (≡ x0 y0)) 
+ | n n0 H' => 
+ [n of (≡ n n0)
+    | {}Z => [n0 of (≡ n n0)
+         | {y'}(S y') => (⊥ (false_eq_comparassion H') Z (S y'))
+         | {}Z => (refl Z)
+    ]
+    | {x'}(S x') => [n0 of (≡ n n0)
+         | {y'}(S y') => (f_succ x' y' (proof_eq_impl_refl x' y' (proof_S_cmp' x' y' H')))
+         | {}Z => (⊥ (false_eq_comparassion2 H') (S x') Z)
+    ]
+ ]).

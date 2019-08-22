@@ -1,0 +1,29 @@
+Rule type : Type.
+Rule ≡ : (forall (n : type) (n' : type) -> Type).
+Rule refl : (forall (n : type) -> (≡ n n)).
+
+Rule False : Type.
+Rule Prop : Type.
+
+Rule True : Type.
+Rule I : True.
+
+Rule apply : (forall
+               (_ : type)
+               (H : (forall (a : type) -> Type))
+               ->
+               (H _)).
+
+Rule rewrite : (forall
+               (x : type)
+               (y : type)
+               (σ' : type)
+               (H : (≡ x y))
+               (H : (≡ x σ'))
+               -> (≡ y σ')).
+
+Rule inversion : (forall 
+                 (x : type)
+                 (P : (forall (_ : type) -> False))
+                 (H : Prop)
+                 -> (forall (H : Prop) -> False)).
