@@ -86,7 +86,7 @@ The "Just" is *just* that Kei can infer the construction evaluated. So, when you
 
 # Rules
 
-![Rules](https://i.imgur.com/zdBnyGI.jpg)
+![Rules](https://i.imgur.com/zdBnyGI.jpg)  
 <sub><sup> (Source : Typechecking in the lambda-Pi-Calculus Modulo : Theory and Practice) </sub> </sub>
 
 # What wasn't implemented
