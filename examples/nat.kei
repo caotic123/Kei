@@ -39,9 +39,6 @@ pred= (\(forall (n : nat) -> nat) | n => [n of nat
   |{x}(S x) => (pred x) 
   |{}Z => Z
   ]).
-         
-id = (\(forall (_ : nat) -> nat) | x => x).
-
 
 zero_monoid_plus = (\(forall (x : nat) -> (≡ x (add Z x))) | x => (refl x)).
 
@@ -56,7 +53,6 @@ cmp' = (\(forall (x : nat) (y : nat) -> Comparasion) | x y => [x of Comparasion
      |{}Z => Eq
    ]
   ]).
-
 
 proof_S_cmp' = (\(forall (q : nat) (t : nat) (_ : (≡' Eq (cmp' (S q) (S t)))) -> (≡' Eq (cmp' q t))) 
  | q t H => H).
