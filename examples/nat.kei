@@ -32,7 +32,7 @@ Rule f_succ : (forall
                -> (≡ (S x) (S y))).
 
 add = (\(forall (n : nat) (y : nat) -> nat) | n y => [n of nat
-  |{x}(S x) => (S (add n x))
+  |{x}(S x) => (S (add x y))
   |{}Z => y]).
 
 pred= (\(forall (n : nat) -> nat) | n => [n of nat
@@ -42,8 +42,10 @@ pred= (\(forall (n : nat) -> nat) | n => [n of nat
          
 id = (\(forall (_ : nat) -> nat) | x => x).
 
-pred_refl = (\(forall (x : nat) (y : nat) (H : (≡ (pred (S x)) (pred (S y)))) -> (≡ (pred x) (pred y))) | x y H => H).
 
+zero_monoid_plus = (\(forall (x : nat) -> (≡ x (add Z x))) | x => (refl x)).
+
+pred_refl = (\(forall (x : nat) (y : nat) (H : (≡ (pred (S x)) (pred (S y)))) -> (≡ (pred x) (pred y))) | x y H => H).
 cmp' = (\(forall (x : nat) (y : nat) -> Comparasion) | x y => [x of Comparasion
    |{x'}(S x') => [y of Comparasion
      |{y'}(S y') => (cmp' x' y')
@@ -71,3 +73,6 @@ proof_eq_impl_refl = (\(forall (x0 : nat) (y0 : nat) (H : (≡' Eq (cmp' x0 y0))
          | {}Z => (⊥ (false_eq_comparassion2 H') (S x') Z)
     ]
  ]).
+
+
+#EVAL : (add (S Z) (S Z)).
