@@ -91,7 +91,7 @@ Kei foo
 
 # Rules
 
-![Rules](https://github.com/caotic123/Kei/blob/master/examples/Typechecking%20in%20the%20lambda-Pi-Calculus%20Modulo_%20Theory%20and%20Practice-1.jpg?raw=true)
+![Rules](https://i.imgur.com/zdBnyGI.jpg)
 
 # What wasn't implemented
 
