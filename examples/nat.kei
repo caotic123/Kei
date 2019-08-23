@@ -1,6 +1,5 @@
 Rule ≡ : (forall (n : nat) (n' : nat) -> Type).
 Rule refl : (forall (n : nat) -> (≡ n n)).
-
 Rule ≡' : (forall (n : Comparasion) (n' : Comparasion) -> Type).
 Rule refl' : (forall (n : Comparasion) -> (≡' n n)).
 
@@ -69,6 +68,5 @@ proof_eq_impl_refl = (\(forall (x0 : nat) (y0 : nat) (H : (≡' Eq (cmp' x0 y0))
          | {}Z => (⊥ (false_eq_comparassion2 H') (S x') Z)
     ]
  ]).
-
 
 #EVAL : (add (S Z) (S Z)).
