@@ -2,21 +2,30 @@
 
 Kei is a dependent language with a small and expressive core based on λΠ-calculus modulo rewriting.
 
-# Checking if everything is okay
+# The Core
+The core of Key is based on a type theory called Lambda-Pi-Calculus Modulo Calculus. Despite the core being very experimental, Kei can prove
+some properties through an encoding of a typed rule.
 
-Go to folder examples and runs in that folder :
-
-```
-Kei foo
-```
-
-If everything is okay you should see a message like this:
+Rules of static symbols are defined as in [Dedukti](https://github.com/Deducteam/Dedukti), for example, a sized list vector can be defined like :
 
 ```
-Bar : Just Foo.
+Rule Vector : (forall (x : nat) -> Type).
+Rule Nil : (Vector Z).
+Rule Cons : (forall (x : nat) (y : A) (H : (Vector x)) -> (Vector (S x))).
 ```
 
-The "Just" is *just* that Kei can infer the construction evaluated. So, when you check the terms Kei automatically eval the EVAL expression and return the value.
+Rewriting Rules is expressed like :
+
+```
+tail = (\(forall (n' : nat) (vec : (Vector n')) -> Maybe) | x vec => [
+  vec of Maybe
+    |{x' y H}(Cons x' y H) => (Surely x' H)
+    |{}Nil => Nothing
+]).
+```
+
+
+One of the most interesting properties of Kei is you can combine statics symbols with rewriting rules to create another logic system, like COC. In λΠ-calculus modulo the conversion of terms is available between β-reduction and Γ-Reduction, this means that a type can be changed through a type relation of a rewriting rule. Of course, if there is a well-typed substitution rule σ(x). 
 
 # Basic
 
@@ -47,30 +56,6 @@ symmetry = (\(forall (x : type) (y : type) (H' : (≡ x y)) -> (≡ y x))
 You could ask yourself if you need always specific a symbol scheme for proving. The idea is that you able to working
 with different approaches and logic system, however, the small core of Kei is expressive enough for represent trivial and more complex proofs like induction proofs with a few numbers of statics symbols and rewriting rules through of composition of rules.
 
-# The Core
-The core of Key is based on a type theory called Lambda-Pi-Calculus Modulo Calculus. Despite the core being very experimental, Kei can prove
-some properties through an encoding of a typed rule.
-
-Rules of static symbols are defined as in [Dedukti](https://github.com/Deducteam/Dedukti), for example, a sized list vector can be defined like :
-
-```
-Rule Vector : (forall (x : nat) -> Type).
-Rule Nil : (Vector Z).
-Rule Cons : (forall (x : nat) (y : A) (H : (Vector x)) -> (Vector (S x))).
-```
-
-Rewriting Rules is expressed like :
-
-```
-tail = (\(forall (n' : nat) (vec : (Vector n')) -> Maybe) | x vec => [
-  vec of Maybe
-    |{x' y H}(Cons x' y H) => (Surely x' H)
-    |{}Nil => Nothing
-]).
-```
-
-
-One of the most interesting properties of Kei is you can combine statics symbols with rewriting rules to create another logic system, like COC. In λΠ-calculus modulo the conversion of terms is available between β-reduction and Γ-Reduction, this means that a type can be changed through a type relation of a rewriting rule. Of course, if there is a well-typed substitution rule σ(x). 
 
 # Installation
 
@@ -83,11 +68,21 @@ ghc --make Checker.hs -o Kei
 export PATH="$PATH:~/.../Kei Language/src"
 ```
 
-Before that, check if everything is okay just going to example folder and ...
+# Checking if everything is okay
+
+Go to folder examples and runs in that folder :
 
 ```
 Kei foo
 ```
+
+If everything is okay you should see a message like this:
+
+```
+Bar : Just Foo.
+```
+
+The "Just" is *just* that Kei can infer the construction evaluated. So, when you check the terms Kei automatically eval the EVAL expression and return the value.
 
 # Rules
 
