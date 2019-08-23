@@ -49,7 +49,7 @@ getGlobalContext k = do
    let funcs = fromList (zip (getTermVarNameByAst k) locals) 
    let local_def_types = fromList (zip (getTermVarNameByAst k) (getTermsType locals))
 
-   let def_env = union (union (getDefRulesEnviroment (toList rules)) (fromList [(Kind, Kind), (Type, Kind)])) local_def_types 
+   let def_env = union (union (getDefRulesEnviroment (toList rules)) (fromList [(Type, Kind)])) local_def_types 
    GlobalContext locals rules def_env funcs
 
 getCTerm (k, y) = do
@@ -285,6 +285,13 @@ app_rule k cc = app_typed k
         Just x -> pushTypeError' cc (TypeError x ("The type of " ++ (show _M) ++ " is " ++ (show x) ++ " however this should be a Pi type (Maybe you applied more arguments than function have)"))
         Nothing -> pushLeakType cc _M (getCTerm cc)
 
+
+
+var_rule :: Term -> CContext -> CContext -- x E T | T |- x : _
+var_rule t' cc = case (get_type t' cc) of
+    Just x -> cc
+    Nothing -> pushLeakType cc t' (getCTerm cc)
+
 match_typing :: Term -> CContext -> CContext
 match_typing k cc = do
     let (Match destructed type' matchs) = k
@@ -333,7 +340,8 @@ inference (Match x y matchs) cc = do
         let state_match = (match_vars (fst y')) -- saves the actual context to avoid problem with scopes variables of matching context
         let try = type_match_option y' x y (predicate, term)
         set_matching_vars (assert_local (TypeJudge term y) (inference term try) (Match x y matchs)) state_match) k matchs -- Preserve and guarantees expr match hygienic scopes 
-inference  _  cc = cc
+inference (var@(Var s x')) cc = var_rule var cc
+inference Type  cc = cc
 
 checkTerm :: CContext -> CContext
 checkTerm cc = inference (getCTerm cc) cc
@@ -346,9 +354,13 @@ test k = case k of
 eval k env = case k of
         (Eval k) : xs -> do
             let expr' = untyped_parsedTerm k
-            print (normalize_term' expr' env)
+            let (cc@(_, (state@(State c _))))= (checkTerm (empty_context expr' env))
+            case (getListErros cc) of
+                ls@(x : xs) -> putStrLn (print_type_erros ls)
+                _ -> putStrLn ((show (normalize_term' expr' cc)) ++ " : " ++ show (get_type expr' cc))
         (k : xs) -> eval xs env
         [] -> return ()
+    where empty_context term' env = (Context term' empty empty, env)
 
 checkKeiTerms :: AST -> IO ()
 checkKeiTerms k = do
@@ -367,14 +379,15 @@ checkKeiTerms k = do
                 putStrLn "Error in function definition, by default don't eval bad typed encoding"
             _ -> do
                 putStrLn "Kei checked the terms with sucess"
-                eval ((\(AST k) -> k) k) (undefined, state) 
+                eval ((\(AST k) -> k) k) state
     
   where
     checkTerms state (context : xs) = checkTerms state xs >>= (\xs -> do
         return ((getListErros (checkTerm (context, state))) : xs))
     checkTerms state [] = return []
-    print_type_erros ((TypeError k s) : xs) = s ++ "\n" ++ print_type_erros xs
-    print_type_erros [] = ""
+
+print_type_erros ((TypeError k s) : xs) = s ++ "\n" ++ print_type_erros xs
+print_type_erros [] = ""
 
 main = do
     getAST >>= (\a -> do

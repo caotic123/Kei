@@ -1,24 +1,26 @@
 # Kei Language
 
-Kei is a depenedent language with small and expressive core based on λΠ-calculus modulo rewriting.
+Kei is a dependent language with a small and expressive core based on λΠ-calculus modulo rewriting.
+
+# Checking if everything is okay
+
+Go to folder examples and runs in that folder :
+
+```
+Kei foo
+```
+
+If everything is okay you should see a message like this:
+
+```
+Bar : Just Foo.
+```
+
+The "Just" is *just* that Kei can infer the construction evaluated. So, when you check the terms Kei automatically eval the EVAL expression and return the value.
 
 # Basic
 
-Create a .kei file and use
-```
-Kei name_of_file
-```
-To check if your terms are corrects. To evaluate a term you must do the same however you need specific what you want evaluate :
-```
-(Your kei file)
-EVAL : (+ (S Z) (S Z)).
-```
-So, when you check the terms Kei automacally eval the EVAL expression and return the result (Detail : Kei check the terms of eval, as well).
-
-
-# Working
-
-As example let's define a syntactically equality :
+As an example let's define syntactical equality :
 
 ```
 Rule type : Type.
@@ -26,7 +28,7 @@ Rule ≡ : (forall (n : type) (n' : type) -> Type).
 Rule refl : (forall (n : type) -> (≡ n n)).
 ```
 
-Extend the symbols with a static type with scheme for proving :
+Extend the symbols with a static type with a scheme for proving :
 ```
 Rule eq_rect : (forall (n : type)
                        (n' : type)
@@ -42,30 +44,33 @@ symmetry = (\(forall (x : type) (y : type) (H' : (≡ x y)) -> (≡ y x))
    | x y H' => (eq_rect x y H' x f_sym (refl x))).
 ```
 
-You could ask yourself if you need always specific a symbol scheme for prove. The ideia is that you able to working
-with differentes approach and logic system, however the small core of Kei is expressive enough for represent trivial and more complex proofs like induction proofs with a few number of statics symbols and rewriting rules through of composition of rules.
+You could ask yourself if you need always specific a symbol scheme for proving. The idea is that you able to working
+with different approaches and logic system, however, the small core of Kei is expressive enough for represent trivial and more complex proofs like induction proofs with a few numbers of statics symbols and rewriting rules through of composition of rules.
 
 # The Core
-The core of key is based on a type theory called Lambda-Pi-Calculus Modulo Calculus. Despite the core being very experimental, Kei is able to prove
-somes properties through a encoding of typed rule.
+The core of Key is based on a type theory called Lambda-Pi-Calculus Modulo Calculus. Despite the core being very experimental, Kei can prove
+some properties through an encoding of a typed rule.
 
-Rules of static symbols are defined as in [Dedukti](https://github.com/Deducteam/Dedukti), for example a sized list vector can be defined like :
+Rules of static symbols are defined as in [Dedukti](https://github.com/Deducteam/Dedukti), for example, a sized list vector can be defined like :
 
 ```
-Rule Vector : (forall (n : nat) -> (Vector n)).
-Rule Cons : (forall (n : nat) -> (_ : type) -> (Vector n) -> (Vector (S n))).
+Rule Vector : (forall (x : nat) -> Type).
+Rule Nil : (Vector Z).
+Rule Cons : (forall (x : nat) (y : A) (H : (Vector x)) -> (Vector (S x))).
 ```
 
 Rewriting Rules is expressed like :
 
 ```
-add = (\(forall (n : nat) (y : nat) -> nat) | n y => [n of nat
-  |{x}(S x) => (S (add n x))
-  |{}Z => y]).
+tail = (\(forall (n' : nat) (vec : (Vector n')) -> Maybe) | x vec => [
+  vec of Maybe
+    |{x' y H}(Cons x' y H) => (Surely x' H)
+    |{}Nil => Nothing
+]).
 ```
 
-One of most interesting property of Kei is you can combine statics symbols with rewriting rules to create another logic system, like COC. In λΠ-calculus modulo the conversion of terms is avaliable between β-reduction and Γ-Reduction, this means that a type can be changed through a type relation of a rewriting rule. Of course, if there is a well-typed substuition rule σ(x). 
 
+One of the most interesting properties of Kei is you can combine statics symbols with rewriting rules to create another logic system, like COC. In λΠ-calculus modulo the conversion of terms is available between β-reduction and Γ-Reduction, this means that a type can be changed through a type relation of a rewriting rule. Of course, if there is a well-typed substitution rule σ(x). 
 
 # Installation
 
@@ -78,7 +83,7 @@ ghc --make Checker.hs -o Kei
 export PATH="$PATH:~/.../Kei Language/src"
 ```
 
-Before that, check if everything is okay going to example folder and ...
+Before that, check if everything is okay just going to example folder and ...
 
 ```
 Kei foo
@@ -106,7 +111,7 @@ Typechecking in the lambda-Pi-Calculus Modulo : Theory and Practice (Ronan Saill
 The λΠ-calculus Modulo as a Universal Proof Language (Mathieu Boespflug1, Quentin Carbonneaux2 and Olivier Hermant3).  
 Dedukti: a Logical Framework based on the λΠ-Calculus Modulo Theory (Ali Assaf1, et al).  
 
-Besides the designer language like syntax were defined with a help of thougts of [Lucas](https://github.com/luksamuk) and [Davidson](https://github.com/davidsonbrsilva).
+Besides the designer language like syntax was defined with the help of thoughts of [Lucas](https://github.com/luksamuk) and [Davidson](https://github.com/davidsonbrsilva).
 
 
 ```

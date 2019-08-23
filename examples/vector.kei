@@ -1,0 +1,19 @@
+Rule nat : Type.
+Rule Z : nat.
+Rule S : (forall (_ : nat) -> nat).
+Rule A : Type.
+Rule △ : A.
+Rule Vector : (forall (x : nat) -> Type).
+Rule Nil : (Vector Z).
+Rule Cons : (forall (x : nat) (y : A) (H : (Vector x)) -> (Vector (S x))).
+Rule Maybe : Type.
+Rule Surely : (forall (x : nat) (_ : (Vector x)) -> Maybe).
+Rule Nothing : Maybe.
+
+tail = (\(forall (n' : nat) (vec : (Vector n')) -> Maybe) | x vec => [
+  vec of Maybe
+    |{x' y H}(Cons x' y H) => (Surely x' H)
+    |{}Nil => Nothing
+]).
+
+#EVAL : (tail (S Z) (Cons Z △ Nil)).

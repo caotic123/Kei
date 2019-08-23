@@ -47,7 +47,7 @@ data RewriteRule = RewriteRule String PTerm deriving Show
 data Definition = FuncDef Def | RewriteDef RewriteRule | Eval PTerm deriving (Show)
 
 data AST = AST [Definition] deriving Show
-var_characters = ['_', '\'', '≡', 'σ']
+var_characters = ['_', '\'', '≡', 'σ', '+', '-', '⊥', '△']
 
 getPosParser :: Monad m => ParsecT s u m (Int, Int)
 getPosParser = do 
@@ -148,7 +148,7 @@ parseRuleDefinition = do
     with_spaces (string "Rule")
     x <- with_spaces $ consume_var_name
     with_spaces (string ":")
-    (try parsePi <|> parseSimplyTerm) >>= (\a -> (with_spaces (string ".")) >> return (RewriteRule x a))
+    (try parseTerm <|> parseSimplyTerm) >>= (\a -> (with_spaces (string ".")) >> return (RewriteRule x a))
 
 parseEval :: Parsec String st Definition
 parseEval = do
