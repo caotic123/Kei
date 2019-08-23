@@ -1,0 +1,5 @@
+Rule foo : Type.
+Rule Bar : Foo.
+
+
+#EVAL : Bar.
