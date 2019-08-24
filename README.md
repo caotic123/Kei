@@ -80,7 +80,6 @@ If everything is okay you should see a message like this:
 ```
 Bar : Just Foo.
 ```
-
 The "Just" is *just* that Kei can infer the construction evaluated. So, when you check the terms Kei automatically eval the EVAL expression and return the value.
 
 # Rules
