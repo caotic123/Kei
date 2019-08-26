@@ -1,6 +1,6 @@
 # Kei Language
 
-Kei is a dependently language with a small and expressive core based on λΠ-calculus modulo rewriting.
+Kei is a dependently typed language with a small and expressive core based on λΠ-calculus modulo rewriting.
 # The Core
 The core of Key is based on a type theory called Lambda-Pi-Calculus Modulo Calculus. Despite the core being very experimental, Kei can prove
 some properties through an encoding of a typed rule.
