@@ -1,0 +1,54 @@
+In coq we can demonstrate that true is differently of false with a simples scheme of induction reflection:
+
+Theorem false_eq : true <> false.
+  move => /= //.
+Qed.
+
+Extracting the proof shoud be something like that :
+
+(fun H : true = false =>
+ let H0 : False :=
+   eq_ind true (fun e : bool => if e then True else False) I false H in
+ False_ind False H0)
+
+
+H : True <> False.
+-----------------
+1 : Eq_ind : x = y, thefore all predicate that hold in x hold in y, P x -> P y.
+2 : So, by eq_ind (if x then True else False) in a x = y suposing the Predicate should be true.
+3 : Apply H in eq_ind by the Predicate 3.
+4 : By 3, i have (if True then True else False), so i can construct a inhabitant by trivial I.
+5 : By 2 3, i have (If False Then True else False), therefore False.
+6 : False.
+
+Now, lets construct the same thougts but using rewrites rules in Kei to proof that x <> false :
+ (To check that proof put the code in separate file)
+
+Rule Bool : Type.
+Rule true : Bool.
+Rule false : Bool.
+
+Rule ≡ : (forall (x : Bool) (y : Bool) -> Type).
+Rule refl : (forall (_ : Bool) -> (≡ _ _)).
+
+Rule eq_rect : (forall (n : Bool)
+                       (n' : Bool)
+                       (x : (≡ n n'))
+                       (f : (forall (a : Bool) -> Type))
+                       (H : (f n))
+                       ->
+                       (f n')).   
+            
+Rule True : Type.
+Rule I : True.
+Rule False : Type.
+
+<> = (\(forall (x : Bool) (y : Bool) (H : (≡ x y)) -> Type) | x y H => False).
+
+hypothesis = (\(forall (H0 : Bool) -> Type) | x => [x of Type
+  |{}true => True
+  |{}false => False
+]).
+
+absurd_true_≡_false = (\(forall (H : (≡ true false)) -> (<> true false H)) | H => (eq_rect true false H hypothesis I)).
+

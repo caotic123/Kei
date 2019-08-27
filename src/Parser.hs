@@ -47,7 +47,7 @@ data RewriteRule = RewriteRule String PTerm deriving Show
 data Definition = FuncDef Def | RewriteDef RewriteRule | Eval PTerm deriving (Show)
 
 data AST = AST [Definition] deriving Show
-var_characters = ['_', '\'', '≡', 'σ', '+', '-', '⊥', '△']
+var_characters = ['_', '\'', '≡', 'σ', '+', '-', '⊥', '△', '>', '<']
 
 getPosParser :: Monad m => ParsecT s u m (Int, Int)
 getPosParser = do 
