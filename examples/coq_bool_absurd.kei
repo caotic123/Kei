@@ -21,7 +21,7 @@ H : True <> False.
 5 : By 2 3, i have (If False Then True else False), therefore False.
 6 : False.
 
-Now, lets construct the same thougts but using rewrites rules in Kei to proof that x <> false :
+Now, lets construct the same thougts but using rewrites rules in Kei to proof that true <> false :
  (To check that proof put the code in separate file)
 
 Rule Bool : Type.
