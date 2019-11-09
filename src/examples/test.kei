@@ -1,6 +1,0 @@
-Rule nat : Type.
-Rule A : (forall (n : nat) (n' : nat) -> Type).
-
-Rule test : (forall (n : nat) (n' : nat) -> (A n n')).
-
-id = (\(forall (n : nat) (n' : nat) (H : (A n n')) -> (A n n')) | 1 2 H => H).
