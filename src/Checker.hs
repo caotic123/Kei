@@ -341,7 +341,8 @@ inference (Match x y matchs) cc = do
         let try = type_match_option y' x y (predicate, term)
         set_matching_vars (assert_local (TypeJudge term y) (inference term try) (Match x y matchs)) state_match) k matchs -- Preserve and guarantees expr match hygienic scopes 
 inference (var@(Var s x')) cc = var_rule var cc
-inference Type  cc = cc
+inference Type cc = cc
+inference Kind cc = cc
 
 checkTerm :: CContext -> CContext
 checkTerm cc = inference (getCTerm cc) cc
