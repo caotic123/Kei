@@ -322,7 +322,9 @@ type_construction_equality x u cc k =
 type_construction_correspodence x y cc = do
     case (x, y) of --two productons canonically construed by the same construction *should* be equal 
       ((App k k'), (App k0 k0')) -> do
-        change_match_vars (k', k0') (type_construction_correspodence k' k0' (type_construction_correspodence k k0 cc))
+        if k' /= k0' then
+          change_match_vars (k', k0') (type_construction_correspodence k' k0' (type_construction_correspodence k k0 cc))
+        else cc   
       (v@(Var (VarSimbol _ _) _), v') -> change_match_vars (v, v') cc
       _ -> cc
     

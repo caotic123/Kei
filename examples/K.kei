@@ -1,0 +1,9 @@
+Rule A : Type.
+Rule ≡ : (forall (n : A) (n' : A) -> Type).
+Rule refl : (forall (n : A) -> (≡ n n)).
+
+axiom_k = (\(forall (a : A) (T : (forall (H : (≡ a a)) -> Type)) (p : (T (refl a))) (e : (≡ a a)) -> (T e)) | _ P y H =>
+  [H of (P H)
+     |{x}(refl x) => y
+  ]
+ ).
