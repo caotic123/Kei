@@ -132,3 +132,33 @@ proof_eq_impl_refl = (\(forall (x0 : (△ nat)) (y0 : (△ nat)) (H : (△ (≡ 
          | {}Z => (⊥ (≡ nat x y) (false_≡_eq_gt H))
     ]
  ]).
+
+Rule Vector : (forall (A : Set) (x : (△ nat)) -> Set).
+Rule nil : (forall (A : Set) -> (△ (Vector A Z))).
+Rule cons : (forall (A : Set) (x : (△ nat)) (y : (△ A)) (H : (△ (Vector A x))) -> (△ (Vector A (S x)))).
+
+concat = (\(forall (A : Set) (x : (△ nat)) (y : (△ nat)) (v : (△ (Vector A x))) (v' : (△ (Vector A y))) -> (△ (Vector A (add x y))))
+   |a x y v v' => [v of (△ (Vector a (add x y)))
+      |{_ n t xs}(cons _ n t xs) => (cons a (add n y) t (concat a n y xs v'))
+      |{_}(nil _) => v'
+]).
+
+head = (\(forall (A : Set) (x : (△ nat)) (y : (△ nat)) (v : (△ (Vector A (S x)))) -> (△ nat))
+   |a x y v => [v of (△ nat)
+      |{_ n t xs}(cons _ n t xs) => (S Z)
+      |{_}(nil _) => Z
+]).
+
+Rule le : (forall (x : (△ nat)) (y : (△ nat)) -> Set).
+Rule le_n : (forall (n : (△ nat)) -> (△ (le n n))).
+Rule le_S : (forall (n : (△ nat)) (n' : (△ nat)) (le' : (△ (le n n'))) -> (△ (le n (S n')))).
+
+no_natural_is_less_than_0 = (\(forall (x : (△ nat)) -> (△ (le Z x))) | x => [
+  x of (△ (le Z x))
+    |{x'}(S x') => (le_S Z x' (no_natural_is_less_than_0 x'))
+    |{}Z => (le_n Z)
+]).
+
+
+
+#EVAL : (le_S (S Z) (S Z) (le_n (S Z))).
