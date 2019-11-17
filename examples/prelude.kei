@@ -158,7 +158,3 @@ no_natural_is_less_than_0 = (\(forall (x : (△ nat)) -> (△ (le Z x))) | x => 
     |{x'}(S x') => (le_S Z x' (no_natural_is_less_than_0 x'))
     |{}Z => (le_n Z)
 ]).
-
-
-
-#EVAL : (le_S (S Z) (S Z) (le_n (S Z))).
