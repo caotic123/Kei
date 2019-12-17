@@ -44,16 +44,16 @@ apply_f f x = case x of
     Var t' x -> f (Var t' x)
     Match matched type' k' -> do
         let expr' = Prelude.map (\(x, y) -> (x, apply_f f y)) k' 
-        Match (apply_f f matched) (apply_f f type') expr'
+        f (Match (apply_f f matched) (apply_f f type') expr')
     Type -> f Type
     Kind -> f Kind
 
 instance Show Term where
-    show (Abs t t') = "[λ" ++ (show t) ++ ". " ++ (show t') ++ "]"
+    show (Abs t t') = "(\\" ++ (show t) ++ " -> " ++ (show t') ++ ")"
     show (Pi n t t') = "π (" ++ ((show n) ++ ":" ++ (show t)) ++ ") -> " ++ show t'
     show (App t t') = "(" ++ show t ++ " " ++ show t' ++ ")"
     show (Match t t' ts) = do
-        (show t) ++ " -> \n{" ++ (Prelude.foldl (\y -> \(x, x') -> "|" ++ (show x) ++ " -> " ++ (show x') ++ "  " ++ y) "" ts) ++ "}\n"
+        "(case " ++ (show t) ++ " of {" ++ (Prelude.foldl (\y -> \(x, x') -> (show x) ++ " -> " ++ (show x') ++ "; " ++ y) "" ts) ++ "})"
     show (Var x _) = show x 
     show Type = "*"
     show Kind = "Kind"

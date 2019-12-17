@@ -18,7 +18,7 @@ instance Show Symbol where
             Next s -> (num s) + 1
 
 instance Show VarUnit where
-    show (VarSimbol x y) = (show y) ++ "{" ++ (show x) ++ "}" 
+    show (VarSimbol x y) = (show y)
     show (VarName x) = x
 
 instance Eq VarUnit where
@@ -44,10 +44,10 @@ data Function = Function PTerm PTerm deriving (Show, Eq, Ord) -- a function is j
 data Def = Def String Function deriving Show
 data RewriteRule = RewriteRule String PTerm deriving Show
 
-data Definition = FuncDef Def | RewriteDef RewriteRule | Eval PTerm deriving (Show)
+data Definition = FuncDef Def | RewriteDef RewriteRule | Eval PTerm | Ignore deriving (Show)
 
 data AST = AST [Definition] deriving Show
-var_characters = ['_', '\'', '≡', 'σ', '+', '-', '⊥', '△', '>', '<', 'Ǝ']
+var_characters = ['_', '\'', '≡', 'σ', '+', '⊥', '△', '>', '<', 'Ǝ', '=', '!', '?']
 
 getPosParser :: Monad m => ParsecT s u m (Int, Int)
 getPosParser = do 
@@ -158,11 +158,19 @@ parseEval = do
     with_spaces (string ".")
     return (Eval y)
 
+
+parseComments :: Parsec String st Definition
+parseComments = do
+    with_spaces (string "--")
+    with_spaces (many (choice [try alphaNum, try space, try $ satisfy (\x -> Prelude.foldl (\x -> \y -> x || y) False $ Prelude.map (\y -> x == y) var_characters), char ',']))
+    with_spaces (string "--")
+    return Ignore
+
 parseS :: [Definition] -> Parsec String st [Definition]
 parseS k = do
     (kei_definiton >>= (\a -> (parseS k) >>= (\c -> return (a : c)))) <|> (eof >>= (\a -> return k))
  where
-     kei_definiton = choice [try (parseFuncDefinition >>= (\a -> return $ FuncDef $ a)), try (parseRuleDefinition >>= (\a -> return $ RewriteDef $ a)), parseEval]
+     kei_definiton = choice [try (parseFuncDefinition >>= (\a -> return $ FuncDef $ a)), try (parseRuleDefinition >>= (\a -> return $ RewriteDef $ a)), parseEval, parseComments]
 
 getAST :: IO (Either (IO ()) AST)
 getAST = do
