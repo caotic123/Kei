@@ -4,6 +4,7 @@ module Main where
     import Rules
     import Normalization
     import Data.Map as Map
+    import System.IO.Unsafe
     
     data Jugdment = TypeJudge Term Term
     type LambdaDef = Map Term Context
@@ -73,7 +74,7 @@ module Main where
     get_type :: Term -> CContext -> Maybe Term
     get_type term' cc = case (get_type' term') of
         Just x -> Just x
-        Nothing -> get_type' (try_normalization' term' cc) --if don't the type try normalizing the type
+        Nothing -> get_type' (normalize term' cc) --if don't the type try normalizing the type
       where
         get_type' term' = case (Map.lookup term' (getLocalContext cc)) of
             Just x -> Just x
@@ -87,7 +88,7 @@ module Main where
     
     assert_local :: Jugdment -> CContext -> Term -> CContext
     assert_local (TypeJudge term type') cc helper = do
-       let type_error k = TypeError term ("The term " ++ (show term) ++ " should be a type " ++ (show (try_normalization' (matching_substituion type' cc) cc)) ++ " instead of " ++ (show (try_normalization' (matching_substituion k cc) cc)) ++ " where " ++ show helper ++ " is your jugdment\n")
+       let type_error k = TypeError term ("The term " ++ (show term) ++ " should be a type " ++ (show (normalize (matching_substituion type' cc) cc)) ++ " instead of " ++ (show (normalize (matching_substituion k cc) cc)) ++ " where " ++ show helper ++ " is your jugdment\n")
        let equal_types k' type' = pi_equality (k', type') cc
        let subst term' = (matching_substituion term' cc)
        case (get_type term cc) of
@@ -116,69 +117,80 @@ module Main where
             (length n) > 0
         _ -> False      
 
-    there_are_no_free_matchs :: Term -> Bool
-    there_are_no_free_matchs c = foldr_f (\x -> \y -> (not (is_ResolvableMatch y)) && x) True c
+    free_of_avaliable_matching :: Term -> Bool
+    free_of_avaliable_matching c = foldr_f (\x -> \y -> (not (is_ResolvableMatch y)) && x) True c
 
     has_no_beta_term :: Term -> Bool
     has_no_beta_term c = foldr_f (\x -> \y -> (is_non_abs_app y) && x) True c
       where 
         is_non_abs_app k = case k of {App (Abs _ _) _ -> False; _ -> True;}
 
+    free_of_matching :: Term -> Bool
+    free_of_matching c = foldr_f (\x -> \y -> (is_non_mtc_app y) && x) True c
+      where 
+        is_non_mtc_app k = case k of {Match _ _ _ -> False; _ -> True;}
+
+    reduciable_terms :: Term -> GlobalContext -> Bool
+    reduciable_terms t cc = foldr_f (\x -> \y ->
+        case (get_fun y cc) of
+            Just v' -> do
+                let definitional_term = (just_reduce_terms' (set_definition y v'))
+                if (free_of_matching definitional_term) || (not (free_of_matching definitional_term)) && (not (free_of_avaliable_matching definitional_term)) then
+                   False
+                else
+                   x
+            Nothing -> x) True t -- Normally, this check if there is a reduciable term to proof computation
+
+    definitional_free :: Term -> GlobalContext -> Bool
+    definitional_free t cc = foldr_f (\x -> \y ->
+        case (getTermFromLambdaDefs y cc) of
+            Just v' -> False
+            Nothing -> x) True t
+
+    free_of_easy_application :: Term -> Bool
+    free_of_easy_application c = foldr_f (\x -> \y -> (is_non_abs_app y) && x) True c
+      where 
+        is_non_abs_app k = case k of {App (Abs _ _) _ -> False; _ -> True;}
+
+    check_easy_evaluation :: Term -> Bool
+    check_easy_evaluation  c = (free_of_easy_application c) &&  (free_of_avaliable_matching c)
+
     is_weak_normalized :: State -> Term -> Bool
-    is_weak_normalized (State cc e) c = free_of_easy_application && there_are_no_definitions && (there_are_no_free_matchs c)
-        where
-            there_are_no_definitions :: Bool
-            there_are_no_definitions = foldr_f (\x -> \y ->
-                case y of
-                    app@(App y' t) -> do
-                        let (free_definitions, free_fix_points) = free_fix_points' app
-                        (free_definitions || (not (free_fix_points) && there_are_no_free_matchs (reduce_substituitions app))) && x
-                    _ -> x) True c
-            free_fix_points' :: Term -> (Bool, Bool)
-            free_fix_points' = foldr_f (\x -> \y ->
-                case y of
-                    (App y' t) ->
-                        case (getTermFromLambdaDefs y' cc) of
-                            Just x' -> if (have_a_fix_point ((term x'), y')) then (False, False) else (False, snd x)
-                            Nothing -> x
-                    _ -> x) (True, True)    
-            there_are_no_free_matchs :: Term -> Bool
-            there_are_no_free_matchs c = 
-                foldr_f (\x -> \y -> (not (is_ResolvableMatch y)) && x) True c
-            free_of_easy_application :: Bool
-            free_of_easy_application = 
-                foldr_f (\x -> \y -> (is_non_abs_app y) && x) True c
-                where 
-                    is_non_abs_app k = case k of {App (Abs _ _) _ -> False; _ -> True;}
-            reduce_substituitions :: Term -> Term
-            reduce_substituitions term = just_reduce_terms' (substitute_defs term)
-                where
-                    substitute_defs (App x y) = App (substitute_defs x) (substitute_defs y)
-                    substitute_defs (Match matched type' k') = do
-                        let terms' = Prelude.map (\(predicate, term) -> (predicate, substitute_defs term)) k'
-                        Match (substitute_defs matched) (substitute_defs type') terms'
-                    substitute_defs (Abs k y) = Abs k (substitute_defs y)
-                    substitute_defs (Pi k y x) = Pi k (substitute_defs y) (substitute_defs x)
-                    substitute_defs term@(Var k y) = case (getTermFromLambdaDefs term cc) of
-                        Just (Context term' _ _) -> term'
-                        Nothing -> term
-                    substitute__defs k = k
-                    just_reduce_terms' :: Term -> Term
-                    just_reduce_terms' term' = if (has_no_beta_term term') then term' else just_reduce_terms' (weak_normalize' term')
-                      where
-                        weak_normalize' :: Term -> Term
-                        weak_normalize' c = (search_beta_reduciable_term c)
-                           where 
-                              search_beta_reduciable_term p@(App (Abs x y) y') = (beta_substituition y (x, y'))
-                              search_beta_reduciable_term (App x y) = App (search_beta_reduciable_term x) (search_beta_reduciable_term y)
-                              search_beta_reduciable_term (Abs x y) = Abs x (search_beta_reduciable_term y)
-                              search_beta_reduciable_term (Match matched type' k') = do
-                                let terms' = Prelude.map (\(predicate, term) -> (predicate, search_beta_reduciable_term term)) k'
-                                Match (search_beta_reduciable_term matched) (search_beta_reduciable_term type') terms'
-                              search_beta_reduciable_term (Pi x y k) = Pi x (search_beta_reduciable_term y) (search_beta_reduciable_term k)
-                              search_beta_reduciable_term Type = Type
-                              search_beta_reduciable_term Kind = Kind
-                              search_beta_reduciable_term v@(Var _ _) = v
+    is_weak_normalized (State cc e) c = (check_easy_evaluation c) && (reduciable_terms c cc)
+
+    is_stricly_normalized :: State -> Term -> Bool
+    is_stricly_normalized (State cc e) c = (check_easy_evaluation c) && (definitional_free c cc)
+
+    reduce_substituitions :: Term -> GlobalContext -> Term
+    reduce_substituitions term cc = just_reduce_terms' (substitute_defs term)
+       where
+        substitute_defs (App x y) = App (substitute_defs x) (substitute_defs y)
+        substitute_defs (Match matched type' k') = do
+            let terms' = Prelude.map (\(predicate, term) -> (predicate, substitute_defs term)) k'
+            Match (substitute_defs matched) (substitute_defs type') terms'
+        substitute_defs (Abs k y) = Abs k (substitute_defs y)
+        substitute_defs (Pi k y x) = Pi k (substitute_defs y) (substitute_defs x)
+        substitute_defs term@(Var k y) = case (getTermFromLambdaDefs term cc) of
+            Just (Context term' _ _) -> term'
+            Nothing -> term
+        substitute__defs k = k
+
+    just_reduce_terms' :: Term -> Term
+    just_reduce_terms' term' = if (has_no_beta_term term') then term' else just_reduce_terms' (weak_normalize' term')
+      where
+        weak_normalize' :: Term -> Term
+        weak_normalize' c = (search_beta_reduciable_term c)
+          where 
+            search_beta_reduciable_term p@(App (Abs x y) y') = (beta_substituition y (x, y'))
+            search_beta_reduciable_term (App x y) = App (search_beta_reduciable_term x) (search_beta_reduciable_term y)
+            search_beta_reduciable_term (Abs x y) = Abs x (search_beta_reduciable_term y)
+            search_beta_reduciable_term (Match matched type' k') = do
+                let terms' = Prelude.map (\(predicate, term) -> (predicate, search_beta_reduciable_term term)) k'
+                Match (search_beta_reduciable_term matched) (search_beta_reduciable_term type') terms'
+            search_beta_reduciable_term (Pi x y k) = Pi x (search_beta_reduciable_term y) (search_beta_reduciable_term k)
+            search_beta_reduciable_term Type = Type
+            search_beta_reduciable_term Kind = Kind
+            search_beta_reduciable_term v@(Var _ _) = v
 
     check_matching :: Term -> Term -> Bool
     check_matching k y = case (y, k) of
@@ -247,23 +259,57 @@ module Main where
     beta_substituition v'@(Var k y) (u, u') = if v' == u then u' else v'
     beta_substituition k (u, u') = k
 
-    try_normalization' :: Term -> CContext -> Term -- Trying get normal terms from the context is a way of obtain sucessuful typed conversion equality
-    try_normalization' term' c'@(context, (State cc e)) = do
-        if (is_weak_normalized (State cc e) term') then
+    stricly_avaliation :: Term -> CContext -> Term -- Once normalize always check the normalization of unbound variables are okay, the algorithm is a less efficient, however a version without this restrition is fast enough
+    stricly_avaliation term' c'@(context, (State cc e)) = do
+        if (is_stricly_normalized (State cc e) term') then
             term'
         else
-             try_normalization' (eager_walk term') c'
+             stricly_avaliation (stricly_walk term') c'
         where 
-            eager_walk t@(App (Abs x y) y') = beta_substituition y (x, y')
-            eager_walk t@(App x y) = App (eager_walk x) (eager_walk y)
+            stricly_walk t@(App (Abs x y) y') = beta_substituition y (x, y')
+            stricly_walk t@(App x y) = App (stricly_walk x) (stricly_walk y)
+            stricly_walk m@(Match matched type' k') = do
+                let terms = Prelude.map (\(x, y) -> (x, stricly_walk y)) k'
+                if (is_ResolvableMatch m) then eval_match m else Match (stricly_walk matched) (stricly_walk type') terms
+            stricly_walk (Abs x y) = Abs x (stricly_walk y)
+            stricly_walk (Pi k x y) = Pi k (stricly_walk x) (stricly_walk y)
+            stricly_walk v@(Var k y) = case (getTermFromLambdaDefs v cc) of
+                Just (Context term' _ _) -> term'
+                Nothing -> v
+            stricly_walk v = v 
+           
+    get_fun :: Term -> GlobalContext -> Maybe Term
+    get_fun (App b@(App _ _) a) cc = get_fun b cc
+    get_fun (App v@(Var _ _) _) cc = case (getTermFromLambdaDefs v cc) of
+        Just (Context term' _ _) -> Just term'
+        Nothing -> Nothing
+    get_fun v cc = Nothing
+    set_definition (App b@(App _ _) a) u = App (set_definition b u) a
+    set_definition (App v@(Var _ _) l) u = (App u l)
+    set_definition v u = v 
+
+    normalize :: Term -> CContext -> Term -- Trying get normal terms from the context is a way of obtain sucessuful typed conversion equality
+    normalize term' c'@(context, (State cc e)) = do
+        if (is_weak_normalized (State cc e) term') then
+           term'
+        else
+            normalize (eager_walk term') c'
+        where 
+            eager_walk t@(App (Abs x y) y') = normalize (beta_substituition y (x, y')) c'
+            eager_walk t@(App x y) = do
+                case (get_fun t cc) of
+                    Just v' -> do
+                        let definitional_term = (just_reduce_terms' (set_definition t v'))
+                        if (free_of_matching definitional_term) || (not (free_of_matching definitional_term)) && (not (free_of_avaliable_matching definitional_term)) then
+                            (normalize definitional_term c')
+                        else
+                            (App (eager_walk x) (eager_walk y))
+                    Nothing -> App (eager_walk x) (eager_walk y)
             eager_walk m@(Match matched type' k') = do
                 let terms = Prelude.map (\(x, y) -> (x, eager_walk y)) k'
                 if (is_ResolvableMatch m) then eval_match m else Match (eager_walk matched) (eager_walk type') terms
             eager_walk (Abs x y) = Abs x (eager_walk y)
             eager_walk (Pi k x y) = Pi k (eager_walk x) (eager_walk y)
-            eager_walk v@(Var k y) = case (getTermFromLambdaDefs v cc) of
-                Just (Context term' _ _) -> term'
-                Nothing -> v
             eager_walk v = v 
 
     pi_uniquiness :: Term -> Symbol -> Term
@@ -282,7 +328,7 @@ module Main where
     pi_equality :: (Term, Term) -> CContext -> Bool
     pi_equality (t, x) cc = do
         let b = Initial
-        t == x || (pi_uniquiness t b) == (pi_uniquiness x b)  || try_normalization' (pi_uniquiness t b) cc == try_normalization' (pi_uniquiness x b) cc
+        t == x || (pi_uniquiness t b) == (pi_uniquiness x b)  || normalize (pi_uniquiness t b) cc == normalize (pi_uniquiness x b) cc
     
     matching_substituion :: Term -> CContext -> Term
     matching_substituion k ((Context u i match_vars, m))
@@ -394,7 +440,7 @@ module Main where
                 let (cc@(_, (state@(State c _))))= (checkTerm (empty_context expr' env))
                 case (getListErros cc) of
                     ls@(x : xs) -> putStrLn (print_type_erros ls)
-                    _ -> putStrLn ((show (try_normalization' expr' cc)) ++ " : " ++ show (get_type expr' cc))
+                    _ -> putStrLn ((show (stricly_avaliation expr' cc)) ++ " : " ++ show (get_type expr' cc))
             (k : xs) -> eval xs env
             [] -> return ()
         where empty_context term' env = (Context term' empty empty, env)
