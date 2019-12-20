@@ -4,8 +4,7 @@ module Main where
     import Rules
     import Normalization
     import Data.Map as Map
-    import System.IO.Unsafe
-    
+
     data Jugdment = TypeJudge Term Term
     type LambdaDef = Map Term Context
     data GlobalContext  = GlobalContext {context :: [Context], rules :: Rule, context_def :: Definitions_env, lambda_def :: LambdaDef} deriving Show
@@ -50,8 +49,9 @@ module Main where
        let funcs = fromList (zip (getTermVarNameByAst k) locals) 
        let local_def_types = fromList (zip (getTermVarNameByAst k) (getTermsType locals))
     
-       let def_env = union (union (getDefRulesEnviroment (toList rules)) (fromList [(Type, Kind)])) local_def_types 
+       let def_env = union (union (getDefRulesEnviroment (toList rules)) (fromList [(Type, Kind), (const "__", const "hole")])) local_def_types 
        GlobalContext locals rules def_env funcs
+         where const x = (Var (VarName x) Const)
     
     getCTerm (k, y) = do
         let (Context term local _) = k
@@ -91,12 +91,16 @@ module Main where
        let type_error k = TypeError term ("The term " ++ (show term) ++ " should be a type " ++ (show (normalize (matching_substituion type' cc) cc)) ++ " instead of " ++ (show (normalize (matching_substituion k cc) cc)) ++ " where " ++ show helper ++ " is your jugdment\n")
        let equal_types k' type' = pi_equality (k', type') cc
        let subst term' = (matching_substituion term' cc)
-       case (get_type term cc) of
-           Just k -> do
-            if (equal_types k type' ||
-                equal_types (subst k) (subst type')) then cc -- A weak equality (lambda )
-            else pushTypeError' cc (type_error k)
-           Nothing -> pushLeakType cc term helper
+       if (is_a_hole term) then 
+        pushTypeError' cc (TypeError term (("The hole expect a ") ++ (show (normalize (matching_substituion type' cc) cc))))
+       else
+        case (get_type term cc) of
+            Just k -> do
+                if (equal_types k type' ||
+                    equal_types (subst k) (subst type')) then cc -- A weak equality (lambda )
+                else
+                    pushTypeError' cc (type_error k)
+            Nothing -> pushLeakType cc term helper
     
     get_rules_typed_context :: [RewriteRule] -> Symbol -> (Symbol, Rule)
     get_rules_typed_context r s = case r of
@@ -396,11 +400,13 @@ module Main where
         
     type_construction_equality x u cc k =
         case (get_type x cc, get_type u cc) of
-            (Just y, Just y') -> assert_local (TypeJudge x y) (type_construction_correspodence y y' (type_construction_correspodence x u cc)) k
+            (Just y, Just y') -> do
+                let assumption =  if x /= u then (change_match_vars (x, u) cc) else cc
+                assert_local (TypeJudge x y) (type_construction_correspodence y y' assumption) k
             _ -> pushTypeError' cc (TypeError x ("Impossible of infer the " ++ (show x) ++ " and " ++ (show u) ++ " in " ++ (show k)))
         
     type_construction_correspodence x y cc = do
-        case (x, y) of --two productons canonically construed by the same construction *should* be equal 
+        case (x, y) of --two products canonically construed by the same construction *should* be equal 
           ((App k k'), (App k0 k0')) -> do
             if k' /= k0' then
               change_match_vars (k', k0') (type_construction_correspodence k' k0' (type_construction_correspodence k k0 cc))
@@ -411,7 +417,6 @@ module Main where
     assert_constructions x y cc helper = case (get_type y cc) of
         Just type' -> assert_local (TypeJudge x type') cc helper
         Nothing -> pushTypeError' cc (TypeError x ("Impossible of infer the " ++ (show x) ++ " and " ++ (show y) ++ " in " ++ (show helper)))
-    
     
     inference (Abs k t) cc = abs_rule (Abs k t) (inference t cc)
     inference (Pi var t t') cc = prod_rule (Pi var t t') (inference t' (inference t cc))
@@ -459,7 +464,7 @@ module Main where
             _ -> case (concat x) of
                 ls@(_ : _) -> do
                     (putStrLn (print_type_erros ls))
-                    putStrLn "Error in function definition, by default don't eval bad typed encoding"
+                    putStrLn "Error in function definition, by default doesn't eval bad typed encoding"
                 _ -> do
                     putStrLn "Kei checked the terms with sucess"
                     eval ((\(AST k) -> k) k) state

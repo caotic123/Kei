@@ -51,12 +51,20 @@ apply_f f x = case x of
 instance Show Term where
     show (Abs t t') = "(\\" ++ (show t) ++ " -> " ++ (show t') ++ ")"
     show (Pi n t t') = "π (" ++ ((show n) ++ ":" ++ (show t)) ++ ") -> " ++ show t'
-    show (App t t') = "(" ++ show t ++ " " ++ show t' ++ ")"
+    show app@(App t t') = do
+        let app_s = get_seq_fun app
+        "(" ++ (init (Prelude.foldl (\x -> \y -> y ++ " " ++ x) "" app_s)) ++ ")"
+
     show (Match t t' ts) = do
         "(case " ++ (show t) ++ " of {" ++ (Prelude.foldl (\y -> \(x, x') -> (show x) ++ " -> " ++ (show x') ++ "; " ++ y) "" ts) ++ "})"
     show (Var x _) = show x 
     show Type = "*"
     show Kind = "Kind"
+
+
+get_seq_fun :: Term -> [String]
+get_seq_fun(App b@(App _ _) a) = (show a) : (get_seq_fun b)
+get_seq_fun (App v c) = [show c, show v]
 
 data Context = Context {term :: Term, local :: Local_env, match_vars :: Lambda_vars} deriving Show
 
@@ -74,6 +82,10 @@ to_symbolic_structural pk (s, v) = case pk of
         let n = to_symbolic_structural type' (s, v)
         let tr = Prelude.map (\(x, y) -> (x, to_symbolic_structural y (s, v))) matchs
         PMatch (to_symbolic_structural term (s, v)) n tr 
+
+is_a_hole :: Term -> Bool
+is_a_hole (Var (VarName "__") _) = True
+is_a_hole  _ = False
 
 pure_structural :: Symbol -> PTerm -> (Symbol, PTerm)
 pure_structural s t = case t of
