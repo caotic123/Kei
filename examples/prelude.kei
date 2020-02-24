@@ -9,7 +9,9 @@ Rule S : (forall (_ : (△ nat)) -> (△ nat)).
 Rule Z : (△ nat).
 
 Rule False : Set.
-Rule ⊥ : (forall (Prop : Set) (_ : (△ False)) -> (△ Prop)).
+
+-- by elimination of void -- 
+⊥ = (\(forall (Prop : Set) (_ : (△ False)) -> (△ Prop)) | x H => [H of (△ x)]).
 
 Rule True : Set.
 Rule I : (△ True).
@@ -50,19 +52,80 @@ eq_rect =  (\(forall (H : Set)
         |{_ x'}(refl _ x') => proof
   ]).
 
-add = (\(forall (n : (△ nat)) (y : (△ nat)) -> (△ nat)) | n y => [n of (△ nat)
-  |{x}(S x) => (S (add x y))
++ = (\(forall (n : (△ nat)) (y : (△ nat)) -> (△ nat)) | n y => [n of (△ nat)
+  |{x}(S x) => (S (+ x y))
   |{}Z => y
 ]).
 
+
+mult = (\(forall (n : (△ nat)) (y : (△ nat)) -> (△ nat)) | n y => [y of (△ nat)
+  |{x}(S x) => (+ n (mult n x))
+  |{}Z => Z
+]).
+
+testing = (\(forall (n : (△ nat)) (y : (△ nat)) -> (△ nat)) | n y => [y of (△ nat)
+  |{x}(S x) => (mult n (testing Z Z))
+  |{}Z => (S Z)
+]).
+
 pred = (\(forall (n : (△ nat)) -> (△ nat)) | n => [n of (△ nat)
-  |{x}(S x) => (pred x) 
+  |{x}(S x) => x
   |{}Z => Z
   ]).
 
-zero_identity_plus = (\(forall (x : (△ nat)) -> (△ (≡ nat x (add Z x)))) | x => (refl nat x)).
-pred_refl = (\(forall (x : (△ nat)) (y : (△ nat)) (H : (△ (≡ nat (pred (S x)) (pred (S y))))) -> (△ (≡ nat (pred x) (pred y))))
-   | x y H => H).
+zero_identity_plus = (\(forall (x : (△ nat)) -> (△ (≡ nat x (+ Z x)))) | x => (refl nat x)).
+
+zero_identity_plus' = (\(forall (x : (△ nat)) -> (△ (≡ nat x (+ x Z)))) | x => [x of (△ (≡ nat x (+ x Z)))
+  |{}Z => (refl nat Z)
+  |{x'}(S x') => (cong nat x' (+ x' Z) nat S (zero_identity_plus' x'))
+]).
+
++_S = (\(forall (x : (△ nat)) (n : (△ nat)) -> (△ (≡ nat (S (+ x n)) (+ (S x) n)))) | x n => (refl nat (S (+ x n)))).
+
++S' =  (\(forall (x : (△ nat))
+                   (n : (△ nat))
+                   (x' : (△ nat))
+                   (n' : (△ nat)) 
+                   (H : (△ (≡ nat (+ x n) (+ x' n'))))
+                   ->
+                   (△ (≡ nat (+ x (S n)) (+ x' (S n'))))
+                   ) | x n x' n' H => [(left_succ_nat x n) of (△ (≡ nat (+ x (S n)) (+ x' (S n'))))
+                    |{t k}(refl t k) => [(left_succ_nat x' n') of (△ (≡ nat (+ x (S n)) (+ x' (S n'))))
+                       |{t k}(refl t k) => (cong nat (+ x n) (+ x' n') nat S H)
+                     ]
+                   ]).
+
+left_succ_nat = (\(forall (x : (△ nat)) (y : (△ nat)) -> (△ (≡ nat (+ x (S y)) (S (+ x y))))) | x y => 
+  [x of (△ (≡ nat (+ x (S y)) (S (+ x y))))
+    |{}Z => (refl nat (S y))
+    |{x'}(S x') => (cong nat (+ x' (S y)) (S (+ x' y)) nat S (left_succ_nat x' y))
+  ]).
+
++_com = (\(forall (x : (△ nat)) (y : (△ nat)) -> (△ (≡ nat (+ x y) (+ y x)))) | x y => 
+  [x of (△ (≡ nat (+ x y) (+ y x)))
+    |{}Z => [y of (△ (≡ nat (+ x y) (+ y x)))
+       |{x}(S x') => [(zero_identity_plus' (S x')) of (△ (≡ nat (+ x y) (+ y x)))
+          |{z _}(refl _ z) => (refl nat z)
+        ]
+       |{}Z => (refl nat Z)
+    ]
+    |{x'}(S x') => [y of (△ (≡ nat (+ x y) (+ y x)))
+       |{}Z => [(zero_identity_plus' (S x')) of (△ (≡ nat (+ x y) (+ y x)))
+          |{z _}(refl _ z) => (refl nat z)
+        ]
+       |{}(S y') => (cong nat (+ x' (S y')) (+ y' (S x')) nat S (+S' x' y' y' x' (+_com x' y')))
+    ]
+  ]).
+
+injectivy_succ = (\(forall (x : (△ nat)) (y : (△ nat)) (H : (△ (≡ nat (S x) (S y)))) -> (△ (≡ nat x y))) | x y H =>
+  (cong nat (S x) (S y) nat pred H)
+).
+
+injectivy_succ' = (\(forall (x : (△ nat)) (y : (△ nat)) (H : (△ (≡ nat (S x) (S y)))) -> (△ (≡ nat x y))) | x y H =>
+  (eq_rect nat (S x) (S y) (succ_hypothesis x) H (refl nat x))
+).
+
+succ_hypothesis = (\(forall (x : (△ nat)) (x' : (△ nat)) -> Set) | x x' => (≡ nat x (pred x'))).
 
 Rule Comparasion : Set.
 Rule Eq : (△ Comparasion).
@@ -137,17 +200,31 @@ Rule Vector : (forall (A : Set) (x : (△ nat)) -> Set).
 Rule nil : (forall (A : Set) -> (△ (Vector A Z))).
 Rule cons : (forall (A : Set) (x : (△ nat)) (y : (△ A)) (H : (△ (Vector A x))) -> (△ (Vector A (S x)))).
 
-concat = (\(forall (A : Set) (x : (△ nat)) (y : (△ nat)) (v : (△ (Vector A x))) (v' : (△ (Vector A y))) -> (△ (Vector A (add x y))))
-   |a x y v v' => [v of (△ (Vector a (add x y)))
-      |{_ n t xs}(cons _ n t xs) => (cons a (add n y) t (concat a n y xs v'))
+concat = (\(forall (A : Set) (x : (△ nat)) (y : (△ nat)) (v : (△ (Vector A x))) (v' : (△ (Vector A y))) -> (△ (Vector A (+ x y))))
+   |a x y v v' => [v of (△ (Vector a (+ x y)))
+      |{_ n t xs}(cons _ n t xs) => (cons a (+ n y) t (concat a n y xs v'))
       |{_}(nil _) => v'
 ]).
 
-head = (\(forall (A : Set) (x : (△ nat)) (y : (△ nat)) (v : (△ (Vector A (S x)))) -> (△ nat))
-   |a x y v => [v of (△ nat)
-      |{_ n t xs}(cons _ n t xs) => (S Z)
-      |{_}(nil _) => Z
-]).
+-- Kei supports impossible clause through dependent pattern matching, once the unification algorithms try to unify with the --
+-- destructed product and the clause, Kei generates explosions absurds --
+-- For example, a sized list with at least one of length can generates the goal S n = Z, if you try match a empty list --
+-- if you have Z = S n, so by congruence every P predicate that holds Z also holds S n, trivially an absurd --
+
+head = (\(forall (A : Set) (x : (△ nat)) (v : (△ (Vector A (S x)))) -> (△ A))
+   |a x v => [v of (△ a)
+      |{_ n t xs}(cons _ n t xs) => t
+      |{_}(nil _) => (⊥ a (eq_rect nat (S x) (S x) (absurd_succ_hypothesis True False) (refl nat Z) I))]).
+
+cdr = (\(forall (A : Set) (x : (△ nat)) (v : (△ (Vector A (S x)))) -> (△ (Vector A x)))
+   |a x v => [v of (△ (Vector a x))
+      |{_ n t xs}(cons _ n t xs) => xs
+      |{_}(nil _) => (⊥ (Vector a x) (eq_rect nat (S x) (S x) (absurd_succ_hypothesis True False) (refl nat Z) I))
+    ]).
+
+-- You may notice that the arguments orders of absurd_succ_hypothesis doesn't matter this is essencially cause' Kei try to --
+-- check first the arguments without normalization, for the sake of optimization, however this weired behavouir happens when you derive --
+-- an absurd, At glance, it doesn't seems be a problem --
 
 Rule le : (forall (x : (△ nat)) (y : (△ nat)) -> Set).
 Rule le_n : (forall (n : (△ nat)) -> (△ (le n n))).
@@ -158,3 +235,74 @@ no_natural_is_less_than_0 = (\(forall (x : (△ nat)) -> (△ (le Z x))) | x => 
     |{x'}(S x') => (le_S Z x' (no_natural_is_less_than_0 x'))
     |{}Z => (le_n Z)
 ]).
+
+
+Rule Ǝ : (forall (A : Set) (P : (forall (e : (△ A)) -> Set)) -> Set).
+Rule exists : (forall (A : Set) (P : (forall (e : (△ A)) -> Set)) (I : (△ A)) (H : (△ (P I))) -> (△ (Ǝ A P))).
+
+forall_ihabitant_type = (\(forall 
+                               (A : Set)
+                               (P : (forall (a : (△ A)) -> Set))
+                               (H : (forall (a : (△ A)) -> (△ (P a))))  
+                               (I : (△ A))
+                               ->
+                               (△ (Ǝ A P)))
+                          | a p h i => (exists a p i (h i))
+).
+
+succ_e = (\(forall (n : (△ nat)) (m : (△ nat)) -> Set) | n m => (≡ nat m (S n))).
+succ_proof = (\(forall (n : (△ nat)) -> (△ (≡ nat (S n) (S n)))) | n => (refl nat (S n))).
+always_N_successor = (\(forall (n : (△ nat)) -> (△ (Ǝ nat (succ_e n)))) | n => (exists nat (succ_e n) (S n) (succ_proof n))).
+
+Rule fin : (forall (n : (△ nat)) -> Set).
+Rule zero : (forall (n : (△ nat)) -> (△ (fin (S n)))).
+Rule succ : (forall (n : (△ nat)) (fin' : (△ (fin n))) -> (△ (fin (S n)))).
+
+inj_vec = (\(forall (A : Set) (x : (△ nat)) (v : (△ (Vector A x))) -> (△ nat))
+   |a x v => x).
+
+inj_fin = (\(forall (x : (△ nat)) (v : (△ (fin x))) -> (△ nat))
+   |x v => x).
+
+fin_Z = (\(forall (v : (△ (fin Z))) -> (△ False))
+   |x => [x of (△ False)
+     |{n}(zero n) => (⊥ False (eq_rect nat Z Z (absurd_succ_hypothesis True False) (refl nat (S n)) I))
+     |{y n}(succ n y) => (⊥ False (eq_rect nat Z Z (absurd_succ_hypothesis True False) (refl nat (S n)) I))
+   ]).
+
+get = (\(forall (A : Set) (len : (△ nat)) (f : (△ (fin len))) (v : (△ (Vector A len))) -> (△ A)) 
+    | a l f v => [f of (△ a)
+      |{n}(zero n) => [v of (△ a)
+        |{_}(nil _) => (⊥ a (fin_Z f))
+        |{_ n t xs}(cons _ n t xs) => t
+    ]
+     |{n y}(succ n y) => (get a n y (cdr a n v))
+]).
+
+set = (\(forall (A : Set) (len : (△ nat)) (f : (△ (fin len))) (y : (△ A)) (v : (△ (Vector A len))) -> (△ (Vector A len))) 
+    | a l f y v => [f of (△ (Vector a l))
+      |{n}(zero n) => [v of (△ (Vector a l))
+        |{_}(nil _) => (⊥ (Vector a l) (fin_Z f))
+        |{_ n t xs}(cons _ n t xs) => (cons _ n y xs)
+    ]
+     |{n y'}(succ n y') => (cons a n (head a n v) (set a n y' y (cdr a n v)))
+]).
+
+replace_vec_conservation =  
+  (\(forall 
+      (A : Set) 
+      (len : (△ nat)) 
+      (f : (△ (fin len)))
+      (y : (△ A))
+      (v : (△ (Vector A len)))
+       -> (△ (≡ A (get A len f (set A len f y v)) y)))
+  | a len f y v => [f of (△ (≡ a (get a len f (set a len f y v)) y))
+     |{n}(zero n) => [v of (△ (≡ a (get a len f (set a len f y v)) y))
+        |{_}(nil _) => (⊥ (≡ a (get a len f (set a len f y v)) y) (fin_Z f))
+        |{_ n t xs}(cons _ n t xs) => (refl a y)
+    ]
+     |{n y'}(succ n y') => (replace_vec_conservation a n y' y (cdr a n v))
+    
+  ]).
+
+#EVAL : Type.
