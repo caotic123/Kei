@@ -55,7 +55,7 @@ add = (\(forall (n : (△ nat)) (y : (△ nat)) -> (△ nat)) | n y => [n of (�
   |{}Z => y
 ]).
 
-pred= (\(forall (n : (△ nat)) -> (△ nat)) | n => [n of (△ nat)
+pred = (\(forall (n : (△ nat)) -> (△ nat)) | n => [n of (△ nat)
   |{x}(S x) => (pred x) 
   |{}Z => Z
   ]).
