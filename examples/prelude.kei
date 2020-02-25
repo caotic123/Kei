@@ -170,6 +170,8 @@ absurd_0_eq = (\(forall (x : (△ nat)) (H : (△ (≡ nat (S x) Z))) -> (△ Fa
    (eq_rect nat (S x) Z (absurd_succ_hypothesis True False) H I)
 ).
 
+absurd_S_eq = (\(forall (x : (△ nat)) (H : (△ (≡ nat (S x) x))) -> (△ False)) | x H  => [x of (△ False)]).
+
 absurd_succ_hypothesis = (\(forall (x : Set) (y : Set) (n : (△ nat)) -> Set) | x y n => [
   n of Set 
     |{x'}(S x') => x
@@ -236,6 +238,20 @@ no_natural_is_less_than_0 = (\(forall (x : (△ nat)) -> (△ (le Z x))) | x => 
     |{}Z => (le_n Z)
 ]).
 
+no_natural_is_less_than_0' = (\(forall (x : (△ nat)) (H : (△ (le (S x) Z))) -> (△ False)) | x H =>
+ [H of (△ False)
+   |{n}(le_n n) => (absurd_0_eq x (refl nat Z))
+   |{h H'}(le_S Z k H') => (absurd_0_eq x (refl nat Z))
+   |{n k H'}(le_S (S n) k H') => (no_natural_is_less_than_0' n (le_S (S n) k H'))
+]).
+
+pred_le = (\(forall (x : (△ nat)) (y : (△ nat)) (H : (△ (le (S x) (S y)))) -> (△ (le x y))) | x y H => [
+  H of (△ (le x y))
+    |{n}(le_n (S k)) => (le_n k) 
+    |{}(le_n Z) => (⊥ (le x y) (absurd_0_eq x (refl nat Z)))
+    |{k k' H'}(le_S (S k) (S k') H') => (le_S k k' (pred_le k k' H'))
+    |{k H'}(le_S Z Z H') => (⊥ (le x y) (absurd_0_eq x (refl nat Z)))
+]).
 
 Rule Ǝ : (forall (A : Set) (P : (forall (e : (△ A)) -> Set)) -> Set).
 Rule exists : (forall (A : Set) (P : (forall (e : (△ A)) -> Set)) (I : (△ A)) (H : (△ (P I))) -> (△ (Ǝ A P))).
@@ -304,5 +320,23 @@ replace_vec_conservation =
      |{n y'}(succ n y') => (replace_vec_conservation a n y' y (cdr a n v))
     
   ]).
+
+leb_lt' = (\(forall (n : (△ nat)) (n' : (△ nat)) (H : (△ (le (S n) n'))) -> (△ (le n n'))) | n n' H => [n of (△ (le n n'))
+  |{}Z => [n' of (△ (le n n'))
+     |{}(S x) => (no_natural_is_less_than_0 (S x))
+     |{}Z => (le_n Z)
+  ]
+  |{x'}(S x') => [n' of (△ (le n n'))
+     |{x}(S x) => (le_S (S x') x (pred_le (S x') x H))
+     |{}Z => (⊥ (le n n') (no_natural_is_less_than_0' (S x') H))
+  ]
+]).
+
+of_nat_lt = (\(forall (n : (△ nat)) (n' : (△ nat)) (H : (△ (le (S n) n'))) -> (△ (fin n'))) | n n' H => [
+  H of (△ (fin n'))
+    |{n}(le_n n) => (zero n) 
+    |{x y H'}(le_S (S x) y H') => (succ y (of_nat_lt x y H'))
+    |{x y H'}(le_S Z y H') => (⊥ (fin n') (absurd_0_eq n (refl nat Z)))
+]).
 
 #EVAL : Type.
