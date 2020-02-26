@@ -321,7 +321,10 @@ replace_vec_conservation =
     
   ]).
 
-leb_lt' = (\(forall (n : (△ nat)) (n' : (△ nat)) (H : (△ (le (S n) n'))) -> (△ (le n n'))) | n n' H => [n of (△ (le n n'))
+<≡ = (\(forall (n : (△ nat)) (n' : (△ nat)) -> Set) | x y => (le x y)). 
+< = (\(forall (n : (△ nat)) (n' : (△ nat)) -> Set) | x y => (le (S x) y)). 
+
+leb_lt' = (\(forall (n : (△ nat)) (n' : (△ nat)) (H : (△ (< n n'))) -> (△ (<≡ n n'))) | n n' H => [n of (△ (le n n'))
   |{}Z => [n' of (△ (le n n'))
      |{}(S x) => (no_natural_is_less_than_0 (S x))
      |{}Z => (le_n Z)
