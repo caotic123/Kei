@@ -82,39 +82,17 @@ zero_identity_plus' = (\(forall (x : (△ nat)) -> (△ (≡ nat x (+ x Z)))) | 
 
 +_S = (\(forall (x : (△ nat)) (n : (△ nat)) -> (△ (≡ nat (S (+ x n)) (+ (S x) n)))) | x n => (refl nat (S (+ x n)))).
 
-+S' =  (\(forall (x : (△ nat))
-                   (n : (△ nat))
-                   (x' : (△ nat))
-                   (n' : (△ nat)) 
-                   (H : (△ (≡ nat (+ x n) (+ x' n'))))
-                   ->
-                   (△ (≡ nat (+ x (S n)) (+ x' (S n'))))
-                   ) | x n x' n' H => [(left_succ_nat x n) of (△ (≡ nat (+ x (S n)) (+ x' (S n'))))
-                    |{t k}(refl t k) => [(left_succ_nat x' n') of (△ (≡ nat (+ x (S n)) (+ x' (S n'))))
-                       |{t k}(refl t k) => (cong nat (+ x n) (+ x' n') nat S H)
-                     ]
-                   ]).
-
 left_succ_nat = (\(forall (x : (△ nat)) (y : (△ nat)) -> (△ (≡ nat (+ x (S y)) (S (+ x y))))) | x y => 
   [x of (△ (≡ nat (+ x (S y)) (S (+ x y))))
     |{}Z => (refl nat (S y))
     |{x'}(S x') => (cong nat (+ x' (S y)) (S (+ x' y)) nat S (left_succ_nat x' y))
   ]).
 
-+_com = (\(forall (x : (△ nat)) (y : (△ nat)) -> (△ (≡ nat (+ x y) (+ y x)))) | x y => 
++_com2 = (\(forall (x : (△ nat)) (y : (△ nat)) -> (△ (≡ nat (+ x y) (+ y x)))) | x y => 
   [x of (△ (≡ nat (+ x y) (+ y x)))
-    |{}Z => [y of (△ (≡ nat (+ x y) (+ y x)))
-       |{x}(S x') => [(zero_identity_plus' (S x')) of (△ (≡ nat (+ x y) (+ y x)))
-          |{z _}(refl _ z) => (refl nat z)
-        ]
-       |{}Z => (refl nat Z)
-    ]
-    |{x'}(S x') => [y of (△ (≡ nat (+ x y) (+ y x)))
-       |{}Z => [(zero_identity_plus' (S x')) of (△ (≡ nat (+ x y) (+ y x)))
-          |{z _}(refl _ z) => (refl nat z)
-        ]
-       |{}(S y') => (cong nat (+ x' (S y')) (+ y' (S x')) nat S (+S' x' y' y' x' (+_com x' y')))
-    ]
+    |{}Z => (rewrite' nat y y (+ y Z) (refl nat y) (zero_identity_plus' y))
+    |{}(S n) => 
+       (rewrite' nat (S (+ n y)) (S (+ y n)) (+ y (S n)) (cong nat (+ n y) (+ y n) nat S (+_com2 n y)) (symmetry nat (+ y (S n)) (S (+ y n)) (left_succ_nat y n)))
   ]).
 
 injectivy_succ = (\(forall (x : (△ nat)) (y : (△ nat)) (H : (△ (≡ nat (S x) (S y)))) -> (△ (≡ nat x y))) | x y H =>
@@ -197,6 +175,10 @@ proof_eq_impl_refl = (\(forall (x0 : (△ nat)) (y0 : (△ nat)) (H : (△ (≡ 
          | {}Z => (⊥ (≡ nat x y) (false_≡_eq_gt H))
     ]
  ]).
+
+Rule list : (forall (A : Set) -> Set).
+Rule empty : (forall (A : Set) -> (△ (list A))).
+Rule new : (forall (A : Set) (y : (△ A)) (H : (△ (list A))) -> (△ (list A))).
 
 Rule Vector : (forall (A : Set) (x : (△ nat)) -> Set).
 Rule nil : (forall (A : Set) -> (△ (Vector A Z))).
@@ -341,5 +323,24 @@ of_nat_lt = (\(forall (n : (△ nat)) (n' : (△ nat)) (H : (△ (le (S n) n')))
     |{x y H'}(le_S (S x) y H') => (succ y (of_nat_lt x y H'))
     |{x y H'}(le_S Z y H') => (⊥ (fin n') (absurd_0_eq n (refl nat Z)))
 ]).
+
+
+rewrite' = (\(forall (A : Set) (x : (△ A)) (y : (△ A)) (z : (△ A)) (H : (△ (≡ A x y))) (H' : (△ (≡ A y z)))
+    -> (△ (≡ A x z)))
+  | a x y z H H' => [H' of (△ (≡ a x z))
+   |{a' x'}(refl a' x') => H
+]).
+
+rewrite = (\(forall (A : Set) (x : (△ A)) (y : (△ A)) (H : (△ (≡ A x y))) (S : Set)
+  (f : (forall (h : (△ (≡ A x x))) -> (△ S)))
+    -> (forall (h : (△ (≡ A x y))) -> (△ S)))
+  | a x y H S P => [H of (forall (h : (△ (≡ a x y))) -> (△ S))
+   |{a' x'}(refl a' x') => P
+]).
+
+
+Rule Pair : (forall (A : Set) (B : Set) -> Set).
+Rule MkPair : (forall (A : Set) (B : Set) (I : (△ A)) (I' : (△ B)) -> (△ (Pair A B))).
+
 
 #EVAL : Type.
