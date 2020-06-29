@@ -156,7 +156,7 @@ injectivy_succ' = (\(forall (x : (△ nat)) (y : (△ nat)) (H : (△ (≡ nat (
 injec_prop_eq = (\(forall (x : (△ nat)) (y : (△ nat)) (H : (△ (≡ nat (S x) (S y)))) ->
    (△ (≡ (≡ nat x y) (injectivy_succ x y H) (injectivy_succ' x y H)))) | x y H => [
      H of (△ (≡ (≡ nat x y) (injectivy_succ x y H) (injectivy_succ' x y H)))
-       |{t}(refl _ (S n)) => (refl (≡ nat x y) (injectivy_succ x y H))
+       |{n}(refl _ (S n)) => (refl (≡ nat x y) (injectivy_succ x y H))
        |{}(refl _ Z) => (⊥ (≡ (≡ nat x y) (injectivy_succ x y H) (injectivy_succ' x y H)) (eq_rect nat (S x) Z (absurd_succ_hypothesis True False) H I))
    ]).
 
