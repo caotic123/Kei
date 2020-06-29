@@ -13,6 +13,15 @@ Rule False : Set.
 -- by elimination of void -- 
 ⊥ = (\(forall (Prop : Set) (_ : (△ False)) -> (△ Prop)) | x H => [H of (△ x)]).
 
+lambda_compose = (\(forall (A : Set) (f : (forall (_  : (△ A)) -> (△ A))) (f' : (forall (_  : (△ A)) -> (△ A))) (x : (△ A)) -> (△ A)) |
+   A f f' x => (f (f' x))).
+   
+σ_compose = (\(forall (A : Set) (f : (forall (_  : (△ A)) -> (△ A))) (x :  (△ nat)) -> (forall (_ : (△ A)) -> (△ A))) | A f x => [
+  x of (forall (_ : (△ A)) -> (△ A))
+  |{n}(S n) => (lambda_compose A f (σ_compose A f n))
+  |{}Z => f
+]).
+
 Rule True : Set.
 Rule I : (△ True).
 
@@ -63,6 +72,11 @@ mult = (\(forall (n : (△ nat)) (y : (△ nat)) -> (△ nat)) | n y => [y of (�
   |{}Z => Z
 ]).
 
+mult' = (\(forall (n : (△ nat)) (y : (△ nat)) -> (△ nat)) | n y => [n of (△ nat)
+  |{x}(S x) => (+ y (mult' x y))
+  |{}Z => Z
+]).
+
 testing = (\(forall (n : (△ nat)) (y : (△ nat)) -> (△ nat)) | n y => [y of (△ nat)
   |{x}(S x) => (mult n (testing Z Z))
   |{}Z => (S Z)
@@ -88,11 +102,47 @@ left_succ_nat = (\(forall (x : (△ nat)) (y : (△ nat)) -> (△ (≡ nat (+ x 
     |{x'}(S x') => (cong nat (+ x' (S y)) (S (+ x' y)) nat S (left_succ_nat x' y))
   ]).
 
-+_com2 = (\(forall (x : (△ nat)) (y : (△ nat)) -> (△ (≡ nat (+ x y) (+ y x)))) | x y => 
++_com = (\(forall (x : (△ nat)) (y : (△ nat)) -> (△ (≡ nat (+ x y) (+ y x)))) | x y => 
   [x of (△ (≡ nat (+ x y) (+ y x)))
     |{}Z => (rewrite' nat y y (+ y Z) (refl nat y) (zero_identity_plus' y))
     |{}(S n) => 
-       (rewrite' nat (S (+ n y)) (S (+ y n)) (+ y (S n)) (cong nat (+ n y) (+ y n) nat S (+_com2 n y)) (symmetry nat (+ y (S n)) (S (+ y n)) (left_succ_nat y n)))
+       (rewrite' nat (S (+ n y)) (S (+ y n)) (+ y (S n)) (cong nat (+ n y) (+ y n) nat S (+_com n y)) (symmetry nat (+ y (S n)) (S (+ y n)) (left_succ_nat y n)))
+  ]).
+
++_assoc = (\(forall (x : (△ nat)) (y : (△ nat)) (z : (△ nat)) -> (△ (≡ nat (+ x (+ y z)) (+ y (+ x z))))) | x y z => 
+  [x of (△ (≡ nat (+ x (+ y z)) (+ y (+ x z))))
+    |{}Z => (refl nat (+ y z))
+    |{}(S n) => (rewrite' nat (S (+ n (+ y z))) (S (+ y (+ n z))) (+ y (S (+ n z))) (cong nat (+ n (+ y z)) (+ y (+ n z)) nat S (+_assoc n y z)) (symmetry nat (+ y (S (+ n z))) (S (+ y (+ n z))) (left_succ_nat y (+ n z))))
+  ]).
+
+mult_Z = (\(forall (x : (△ nat)) -> (△ (≡ nat Z (mult' x Z)))) | x => 
+ [x of (△ (≡ nat Z (mult' x Z)))
+   |{}Z => (refl nat Z)
+   |{}(S n) => (mult_Z n)
+ ]
+).
+
+mult_assoc = (\(forall (x : (△ nat)) (y : (△ nat)) -> (△ (≡ nat (+ y (mult' x y)) (mult' (S x) y)))) | x y => [
+  x of (△ (≡ nat (+ y (mult' x y)) (mult' (S x) y)))
+   |{}Z => (refl nat (+ y Z))
+   |{n}(S n) => (cong nat (+ y (mult' n y)) (+ y (mult' n y)) nat (+ y) (mult_assoc n y))
+]).
+
+sym_cong =
+  (\(forall (A : Set) (x : (△ A)) (y : (△ A)) (B : Set) (f : (forall (_ : (△ A)) -> (△ B))) (H : (△ (≡ A x y))) -> (△ (≡ B (f y) (f x)))) | A x y B f H =>
+    (cong A y x B f (symmetry A x y H))).
+
+mult_S' = (\(forall (x : (△ nat)) (y : (△ nat)) -> (△ (≡ nat (+ x (mult' x y)) (mult' x (S y))))) | x y => [
+  x of (△ (≡ nat (+ x (mult' x y)) (mult' x (S y))))
+   |{}Z => (refl nat Z)
+   |{n}(S n) => 
+      (sym_cong nat (+ y (mult' n (S y))) (+ n (+ y (mult' n y))) nat S (rewrite' nat (+ y (mult' n (S y))) (+ y (+ n (mult' n y))) (+ n (+ y (mult' n y))) (symmetry nat (+ y (+ n (mult' n y))) (+ y (mult' n (S y))) (cong nat (+ n (mult' n y)) (mult' n (S y)) nat (+ y) (mult_S' n y))) (+_assoc y n (mult' n y))))
+]).
+
+mult_com = (\(forall (x : (△ nat)) (y : (△ nat)) -> (△ (≡ nat (mult' x y) (mult' y x)))) | x y => 
+  [x of (△ (≡ nat (mult' x y) (mult' y x)))
+    |{}Z => (mult_Z y)
+    |{n}(S n) => (rewrite' nat (+ y (mult' n y)) (+ y (mult' y n)) (mult' y (S n)) (cong nat (mult' n y) (mult' y n) nat (+ y) (mult_com n y)) (mult_S' y n))
   ]).
 
 injectivy_succ = (\(forall (x : (△ nat)) (y : (△ nat)) (H : (△ (≡ nat (S x) (S y)))) -> (△ (≡ nat x y))) | x y H =>
@@ -102,6 +152,13 @@ injectivy_succ = (\(forall (x : (△ nat)) (y : (△ nat)) (H : (△ (≡ nat (S
 injectivy_succ' = (\(forall (x : (△ nat)) (y : (△ nat)) (H : (△ (≡ nat (S x) (S y)))) -> (△ (≡ nat x y))) | x y H =>
   (eq_rect nat (S x) (S y) (succ_hypothesis x) H (refl nat x))
 ).
+
+injec_prop_eq = (\(forall (x : (△ nat)) (y : (△ nat)) (H : (△ (≡ nat (S x) (S y)))) ->
+   (△ (≡ (≡ nat x y) (injectivy_succ x y H) (injectivy_succ' x y H)))) | x y H => [
+     H of (△ (≡ (≡ nat x y) (injectivy_succ x y H) (injectivy_succ' x y H)))
+       |{t}(refl _ (S n)) => (refl (≡ nat x y) (injectivy_succ x y H))
+       |{}(refl _ Z) => (⊥ (≡ (≡ nat x y) (injectivy_succ x y H) (injectivy_succ' x y H)) (eq_rect nat (S x) Z (absurd_succ_hypothesis True False) H I))
+   ]).
 
 succ_hypothesis = (\(forall (x : (△ nat)) (x' : (△ nat)) -> Set) | x x' => (≡ nat x (pred x'))).
 
@@ -343,4 +400,4 @@ Rule Pair : (forall (A : Set) (B : Set) -> Set).
 Rule MkPair : (forall (A : Set) (B : Set) (I : (△ A)) (I' : (△ B)) -> (△ (Pair A B))).
 
 
-#EVAL : Type.
+#EVAL : (mult' (S Z) (S Z)).
